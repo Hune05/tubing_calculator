@@ -72,13 +72,10 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
     // 10-16: 겹 치수는 띄워 그린 자리로 찾는다. 좌표 모양이면 찍은 치수는 안 보이니 못 고른다.
     if (_dimStyle == 'ordinate') return null;
     final lanes = _dimStyle == 'cad'
-        ? layoutCadDimensionLanes(
+        ? layoutMarginDimensionLanes(
             _dimensions,
             gap: DimensionPainter.laneGap(_markScale),
-            panelWidth: _panelWidth,
-            panelHeight: _panelHeight,
-            obstacles: dimObstacles(_placedItems),
-          )
+          ).lanes
         : layoutDimensionLanes(
             _dimensions,
             gap: DimensionPainter.laneGap(_markScale),

@@ -549,6 +549,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   @visibleForTesting
   Set<String> get debugMultiSelectedIds => _multiSelectedIds;
 
+  /// 시험용: 저장·PDF에 쓰는 도면 그림(PNG). 캐드식이면 여백 치수까지.
+  @visibleForTesting
+  Future<Uint8List?> debugCapturePng() => _capturePng();
+
   // 🚀 [신규] 실행 취소/다시 실행. 모듈 배치/이동/삭제/회전/치수 추가·
   // 삭제 등 "한 번의 사용자 조작" 직전마다 현재 상태를 스냅샷으로
   // 쌓아두고, 되돌릴 땐 그 스냅샷으로 복원한다. items/dimensions만

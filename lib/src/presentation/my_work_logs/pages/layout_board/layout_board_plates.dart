@@ -72,12 +72,27 @@ extension _LayoutBoardPlates on _LayoutBoardPageState {
     final double vh = v.height;
     // 둘레에 W·H 표기(화면 12px 글씨) 자리를 남기고 맞춘다.
     const double pad = 28;
-    final double k = math.min(
+    double k = math.min(
       (v.width - pad * 2) / _panelWidth,
       (vh - pad * 2) / _panelHeight,
     );
-    final double dx = (v.width - _panelWidth * k) / 2;
-    final double dy = (vh - _panelHeight * k) / 2;
+    // 10-16 캐드식: 위·왼쪽 여백 치수까지 화면에 들어오게.
+    double ml = 0, mt = 0;
+    if (_dimStyle == 'cad') {
+      // 글씨 배율이 맞춘 배율에 따라 바뀌니 몇 번 되풀이해 맞춘다.
+      for (int it = 0; it < 4; it++) {
+        final double g = DimensionPainter.laneGap(dimensionMarkScale(k));
+        final m = layoutMarginDimensionLanes(_syncedDimensions, gap: g);
+        ml = m.leftMargin(g) + g * 0.3;
+        mt = m.topMargin(g) + g * 0.3;
+        k = math.min(
+          (v.width - 16) / (_panelWidth + ml),
+          (vh - 16) / (_panelHeight + mt),
+        );
+      }
+    }
+    final double dx = (v.width - (_panelWidth + ml) * k) / 2 + ml * k;
+    final double dy = (vh - (_panelHeight + mt) * k) / 2 + mt * k;
     _viewerController.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
       // 깊이축도 k로 둔다. 1로 두면 확대 기능이 지금 배율을 1로 읽어 맞춘 크기의 4배까지만 키워 줬다.

@@ -29,6 +29,8 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
     setState(() {
       _dimStyle = next;
       _dimensionsVersion++;
+      // 캐드식은 판 밖 여백까지 보이게 화면을 다시 맞춘다.
+      _fitPending = true;
     });
     SharedPreferences.getInstance()
         .then((p) => p.setString(_dimStylePrefsKey, next))

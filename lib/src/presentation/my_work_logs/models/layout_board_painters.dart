@@ -736,6 +736,10 @@ class DimensionPainter extends CustomPainter {
   final String style;
   final List<PlacedItem> items;
 
+  /// 어느 층을 그릴지(10-16): 'all' 전부, 'board' 판 안(판에 잘림), 'margin' 판 밖 여백(캐드식 치수).
+  /// 캐드식은 판 안 층에 대각선·찍는 중 표시만, 여백 층에 가로·세로 치수와 판 크기를 그린다.
+  final String layer;
+
   DimensionPainter({
     required this.dimensions,
     this.activePoint,
@@ -746,6 +750,7 @@ class DimensionPainter extends CustomPainter {
     this.focusId,
     this.style = 'app',
     this.items = const [],
+    this.layer = 'all',
   });
 
   /// 겹 치수 한 칸 간격(도면 mm). 숫자 글씨 높이보다 넉넉하게.
@@ -753,6 +758,7 @@ class DimensionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (layer == 'margin' && style != 'cad') return;
     if (style == 'ordinate') {
       drawOrdinateDimensions(
         canvas,
@@ -769,21 +775,21 @@ class DimensionPainter extends CustomPainter {
         ? dimObstacles(items)
         : const [];
     final cadLabels = <Rect>[];
-    final lanes = style == 'cad'
-        ? layoutCadDimensionLanes(
-            dimensions,
-            gap: laneGap(markScale),
-            panelWidth: panelWidth,
-            panelHeight: panelHeight,
-            obstacles: cadObstacles,
-          )
-        : layoutDimensionLanes(dimensions, gap: laneGap(markScale));
+    final double gap = laneGap(markScale);
+    final MarginDimLayout? margin = style == 'cad'
+        ? layoutMarginDimensionLanes(dimensions, gap: gap)
+        : null;
+    final lanes = margin?.lanes ?? layoutDimensionLanes(dimensions, gap: gap);
     final bool focusHasDims =
         focusId != null &&
         dimensions.any((d) => d.p1.id == focusId || d.p2.id == focusId);
     for (int i = 0; i < dimensions.length; i++) {
       final dim = dimensions[i];
       final DimensionLane lane = lanes[dim.id]!;
+      // 캐드식: 여백 줄에 놓인 치수는 여백 층에서, 대각선 등 판 안 치수는 판 안 층에서.
+      final bool inMargin = margin != null && lane.lane > 0;
+      if (layer == 'board' && inMargin) continue;
+      if (layer == 'margin' && !inMargin) continue;
       final endpoints = (p1: lane.p1, p2: lane.p2, distance: lane.distance);
       // 지금 보는 부품과 상관없는 치수는 옅게(그 부품에 치수가 있을 때만).
       final bool faded =
@@ -848,7 +854,7 @@ class DimensionPainter extends CustomPainter {
         labelPrefix = "⚠ 최소 ${dim.minGapMm!.toInt()} 미달 ";
       }
 
-      if (style == 'cad' && !dim.isDiagonal) {
+      if (inMargin) {
         drawCadStyleDimension(
           canvas,
           lane,
@@ -915,7 +921,7 @@ class DimensionPainter extends CustomPainter {
           textDirection: TextDirection.ltr,
         )..layout();
         // 캐드식은 숫자가 늘 선 위(세로는 왼쪽)에 있으니 메모는 아래(세로는 오른쪽)에.
-        final bool cadSide = style == 'cad' && !dim.isDiagonal;
+        final bool cadSide = inMargin;
         final Offset noteCenter = cadSide
             ? mid +
                   (ddx.abs() >= ddy.abs()
@@ -943,6 +949,42 @@ class DimensionPainter extends CustomPainter {
       }
       if (faded) canvas.restore();
     }
+
+    // 캐드식 여백 맨 바깥 줄: 판 크기(가로·세로).
+    if (margin != null && layer != 'board' && panelWidth > 0) {
+      const Color sizeColor = Color(0xFF2F3A40);
+      final double y = MarginDimLayout.lineAt(margin.topLanes, gap);
+      final double x = MarginDimLayout.lineAt(margin.leftLanes, gap);
+      drawCadStyleDimension(
+        canvas,
+        DimensionLane(
+          Offset(0, y),
+          Offset(panelWidth, y),
+          panelWidth,
+          1,
+          Offset.zero,
+          Offset(panelWidth, 0),
+        ),
+        "${panelWidth.round()}",
+        sizeColor,
+        scale: markScale,
+      );
+      drawCadStyleDimension(
+        canvas,
+        DimensionLane(
+          Offset(x, 0),
+          Offset(x, panelHeight),
+          panelHeight,
+          1,
+          Offset.zero,
+          Offset(0, panelHeight),
+        ),
+        "${panelHeight.round()}",
+        sizeColor,
+        scale: markScale,
+      );
+    }
+    if (layer == 'margin') return;
 
     // 🚀 [개선] 예전엔 벽 기준점(WallPoint)일 때만 대기 중 표시를 그려서,
     // 모듈을 첫 지점으로 찍었을 땐 "측정 대기 중"이라는 표시가 전혀
@@ -984,6 +1026,7 @@ class DimensionPainter extends CustomPainter {
         oldDelegate.version != version ||
         oldDelegate.focusId != focusId ||
         oldDelegate.style != style ||
+        oldDelegate.layer != layer ||
         oldDelegate.items.length != items.length;
   }
 }

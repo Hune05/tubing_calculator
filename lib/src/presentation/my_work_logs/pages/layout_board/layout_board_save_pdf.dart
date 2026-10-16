@@ -11,9 +11,14 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
           _captureKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
       // 큰 판은 3배로 찍으면 기기 그림 한계(8192px)를 넘어 실패하거나 메모리가 넘친다(10-08).
-      ui.Image image = await boundary.toImage(
-        pixelRatio: layoutCapturePixelRatio(boundary.size),
-      );
+      ui.Image image;
+      if (_dimStyle == 'cad') {
+        image = await _captureWithMargin(boundary);
+      } else {
+        image = await boundary.toImage(
+          pixelRatio: layoutCapturePixelRatio(boundary.size),
+        );
+      }
       ByteData? byteData = await image.toByteData(
         format: ui.ImageByteFormat.png,
       );
@@ -21,6 +26,39 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
     } catch (e) {
       return null;
     }
+  }
+
+  /// 캐드식(10-16): 판 그림에 위·왼쪽 여백을 붙이고 그 여백에 치수·판 크기를 그려 한 장으로.
+  Future<ui.Image> _captureWithMargin(RenderRepaintBoundary boundary) async {
+    final Size board = boundary.size;
+    final double g = DimensionPainter.laneGap(_markScale);
+    final m = layoutMarginDimensionLanes(_syncedDimensions, gap: g);
+    final double left = m.leftMargin(g), top = m.topMargin(g), pad = g * 0.5;
+    final Size whole = Size(board.width + left + pad, board.height + top + pad);
+    final double pr = layoutCapturePixelRatio(whole);
+    final ui.Image boardImg = await boundary.toImage(pixelRatio: pr);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      Offset.zero & Size(whole.width * pr, whole.height * pr),
+      Paint()..color = Colors.white,
+    );
+    canvas.drawImage(boardImg, Offset(left * pr, top * pr), Paint());
+    canvas.scale(pr);
+    canvas.translate(left, top);
+    DimensionPainter(
+      dimensions: _syncedDimensions,
+      panelWidth: _panelWidth,
+      panelHeight: _panelHeight,
+      markScale: _markScale,
+      style: _dimStyle,
+      items: _placedItems,
+      layer: 'margin',
+    ).paint(canvas, board);
+    return recorder.endRecording().toImage(
+      (whole.width * pr).ceil(),
+      (whole.height * pr).ceil(),
+    );
   }
 
   // 🚀 [신규] 작업 일지 작성 화면에서 이 도구를 열었을 때, 완성된 배치도를
@@ -227,9 +265,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: const Text(
             "저장 전 변경 사항 확인",
             style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
@@ -1057,9 +1093,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: const Text(
             "PDF 만들기",
             style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
@@ -1081,9 +1115,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                         key: ValueKey("pdf_paper_$p"),
                         label: Text(p),
                         selected: paper == p,
-                        labelStyle: TextStyle(
-                          fontWeight: FontWeight.w800,
-                        ),
+                        labelStyle: TextStyle(fontWeight: FontWeight.w800),
                         onSelected: (_) => setDlg(() => paper = p),
                       ),
                     for (final (v, t) in const [(false, "세로"), (true, "가로")])
@@ -1091,9 +1123,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                         key: ValueKey("pdf_land_$v"),
                         label: Text(t),
                         selected: landscape == v,
-                        labelStyle: TextStyle(
-                          fontWeight: FontWeight.w800,
-                        ),
+                        labelStyle: TextStyle(fontWeight: FontWeight.w800),
                         onSelected: (_) => setDlg(() => landscape = v),
                       ),
                   ],

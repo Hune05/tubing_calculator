@@ -44,679 +44,730 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
           if (mounted && _viewportSize != constraints.biggest) {
             setState(() => _viewportSize = constraints.biggest);
           }
+          // 10-16 캐드식: 처음 연 그대로(확대·이동 안 함)면 판 밖 여백 치수가 화면 밖이라 맞춰 준다.
+          if (mounted &&
+              _dimStyle == 'cad' &&
+              _viewportSize != null &&
+              _viewerController.value.isIdentity()) {
+            _fitPending = true;
+          }
           if (mounted && _fitPending && _viewportSize != null) {
             _fitPending = false;
             setState(_fitBoardToView);
           }
         });
-        return InteractiveViewer(
-          key: _viewerKey,
-          transformationController: _viewerController,
-          minScale: 0.05,
-          // 스키드는 도면이 커서(2400mm 이상) 화면에 맞추면 0.15배 안팎이다. 치수를 볼 만큼 더 키울 수 있게.
-          maxScale: _isSkid ? 12.0 : 4.0,
-          boundaryMargin: const EdgeInsets.all(2000),
-          constrained: false,
-          child: DragTarget<ModulePreset>(
-            onMove: (details) {
-              final RenderBox box =
-                  _boardKey.currentContext!.findRenderObject() as RenderBox;
-              Offset localPos = box.globalToLocal(details.offset);
-              double clampedX = localPos.dx.clamp(
-                0.0,
-                math.max(0.0, _panelWidth - details.data.width),
-              );
-              double clampedY = localPos.dy.clamp(
-                0.0,
-                math.max(0.0, _panelHeight - details.data.height),
-              );
-              setState(() {
-                _previewItem = PlacedItem(
-                  id: 'preview',
-                  name: details.data.name,
-                  position: _snapToGrid(Offset(clampedX, clampedY)),
-                  width: details.data.width,
-                  height: details.data.height,
-                  shape: details.data.shape,
-                  rotation: 0,
+        return GestureDetector(
+          // 10-16 캐드식: 판 밖 여백의 치수는 판 위 탭에 안 걸리니 여기서 받는다(판 안 탭은 안쪽이 먼저 가져간다).
+          onTapUp: _dimStyle == 'cad'
+              ? (d) => _onTapMargin(d.localPosition)
+              : null,
+          child: InteractiveViewer(
+            key: _viewerKey,
+            transformationController: _viewerController,
+            minScale: 0.05,
+            // 스키드는 도면이 커서(2400mm 이상) 화면에 맞추면 0.15배 안팎이다. 치수를 볼 만큼 더 키울 수 있게.
+            maxScale: _isSkid ? 12.0 : 4.0,
+            boundaryMargin: const EdgeInsets.all(2000),
+            constrained: false,
+            child: DragTarget<ModulePreset>(
+              onMove: (details) {
+                final RenderBox box =
+                    _boardKey.currentContext!.findRenderObject() as RenderBox;
+                Offset localPos = box.globalToLocal(details.offset);
+                double clampedX = localPos.dx.clamp(
+                  0.0,
+                  math.max(0.0, _panelWidth - details.data.width),
                 );
-              });
-            },
-            onLeave: (data) => setState(() => _previewItem = null),
-            onAcceptWithDetails: (details) {
-              final RenderBox box =
-                  _boardKey.currentContext!.findRenderObject() as RenderBox;
-              _onAcceptItem(details.data, box.globalToLocal(details.offset));
-            },
-            builder: (context, candidateData, rejectedData) {
-              return Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  GestureDetector(
-                    onTapUp: (details) => _onTapBoard(details.localPosition),
-                    child: RepaintBoundary(
-                      key: _captureKey,
-                      child: Container(
-                        key: _boardKey,
-                        width: _panelWidth,
-                        height: _panelHeight,
-                        decoration: BoxDecoration(
-                          color: pureWhite,
-                          border: Border.all(color: tossText, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 30,
-                              offset: const Offset(10, 10),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.hardEdge,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            if (_backgroundImagePath != null &&
-                                File(_backgroundImagePath!).existsSync())
-                              // 축척을 맞췄으면 그 자리·크기(mm)에, 아니면 판에 맞춰 깐다.
-                              _backgroundRect != null
-                                  ? Positioned.fromRect(
-                                      key: const ValueKey("board_background"),
-                                      rect: _backgroundRect!,
-                                      child: Opacity(
-                                        opacity: _backgroundOpacity,
-                                        child: ColorFiltered(
-                                          colorFilter: _backgroundFilter,
-                                          child: Image.file(
-                                            File(_backgroundImagePath!),
-                                            fit: BoxFit.fill,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : Positioned.fill(
-                                      key: const ValueKey("board_background"),
-                                      child: Opacity(
-                                        opacity: _backgroundOpacity,
-                                        child: ColorFiltered(
-                                          colorFilter: _backgroundFilter,
-                                          child: Image.file(
-                                            File(_backgroundImagePath!),
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                            CustomPaint(
-                              size: Size.infinite,
-                              painter: GridPainter(
-                                gridSize: _gridSize > 0 ? _gridSize : 5.0,
-                              ),
-                            ),
-                            if (_isSkid) _buildSkidOverlay(),
-                            if (_previewItem != null &&
-                                _mode == BoardMode.placeModule) ...[
-                              Positioned(
-                                left: _previewItem!.position.dx,
-                                top: _previewItem!.position.dy,
-                                child: Opacity(
-                                  opacity: 0.5,
-                                  child: _buildBoardItem(_previewItem!),
-                                ),
+                double clampedY = localPos.dy.clamp(
+                  0.0,
+                  math.max(0.0, _panelHeight - details.data.height),
+                );
+                setState(() {
+                  _previewItem = PlacedItem(
+                    id: 'preview',
+                    name: details.data.name,
+                    position: _snapToGrid(Offset(clampedX, clampedY)),
+                    width: details.data.width,
+                    height: details.data.height,
+                    shape: details.data.shape,
+                    rotation: 0,
+                  );
+                });
+              },
+              onLeave: (data) => setState(() => _previewItem = null),
+              onAcceptWithDetails: (details) {
+                final RenderBox box =
+                    _boardKey.currentContext!.findRenderObject() as RenderBox;
+                _onAcceptItem(details.data, box.globalToLocal(details.offset));
+              },
+              builder: (context, candidateData, rejectedData) {
+                return Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    GestureDetector(
+                      onTapUp: (details) => _onTapBoard(details.localPosition),
+                      child: RepaintBoundary(
+                        key: _captureKey,
+                        child: Container(
+                          key: _boardKey,
+                          width: _panelWidth,
+                          height: _panelHeight,
+                          decoration: BoxDecoration(
+                            color: pureWhite,
+                            border: Border.all(color: tossText, width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 30,
+                                offset: const Offset(10, 10),
                               ),
                             ],
-
-                            // 🚀 [복원] 안내선 자체는 문제가
-                            // 없었다 - 아래 _placedItems.map()의
-                            // Positioned에 key가 있는 한, 이
-                            // 위젯들이 조건부로 나타났다 사라져도
-                            // 더 이상 목록 순서가 밀려서 엉뚱한
-                            // 모듈에 제스처가 연결되는 일이
-                            // 없다.
-                            if (_alignGuideX != null)
-                              Positioned(
-                                left: _alignGuideX,
-                                top: 0,
-                                bottom: 0,
-                                child: IgnorePointer(
-                                  child: Container(
-                                    width: 1.4,
-                                    color: alignGuideColor,
-                                  ),
-                                ),
-                              ),
-                            if (_alignGuideY != null)
-                              Positioned(
-                                top: _alignGuideY,
-                                left: 0,
-                                right: 0,
-                                child: IgnorePointer(
-                                  child: Container(
-                                    height: 1.4,
-                                    color: alignGuideColor,
-                                  ),
-                                ),
-                              ),
-
-                            // 경로 손잡이는 부품 아래에(정면·측면에서 부품을 잡으려다 경로가 열리지 않게).
-                            if (_isSkid && _mode == BoardMode.placeModule)
-                              ..._buildRouteHandles(),
-                            if (_isSkid && _plateId != kPlateMain) ...[
-                              ..._buildViewProxies(),
-                              ..._buildHiddenOutlines(),
-                            ],
-                            ..._placedItems.map((item) {
-                              // 10-16: "치수" 상태에서도 부품을 끌어 옮긴다(치수선은 부품을 따라온다).
-                              final bool canDrag = !item.isLocked;
-                              // 끌기 세 단계(손가락 끌기·길게 누른 채 끌기가 같이 쓴다).
-                              void dragStart() {
-                                          // 드래그 한 번 = undo 한 단계
-                                          // (onPanUpdate마다 쌓으면 되돌리기가
-                                          // 프레임 단위로 쪼개져 버린다).
-                                          final bool isGroupDrag =
-                                              _multiSelectMode &&
-                                              _multiSelectedIds.contains(
-                                                item.id,
-                                              ) &&
-                                              _multiSelectedIds.length > 1;
-                                          _pushUndo();
-                                          _dragFromOverlap = isGroupDrag
-                                              ? _placedItems.any(
-                                                  (i) =>
-                                                      _multiSelectedIds.contains(i.id) &&
-                                                      _overlapsAny(i, i.position, excludeIds: _multiSelectedIds),
-                                                )
-                                              : _overlapsAny(item, item.position);
-                                          setState(() {
-                                            _dragRawPosition = item.position;
-                                            _activeItem = item;
-                                            if (isGroupDrag) {
-                                              _groupDragAnchorOrigin =
-                                                  item.position;
-                                              _groupDragOrigins = {
-                                                for (final i in _placedItems)
-                                                  if (_multiSelectedIds
-                                                      .contains(i.id))
-                                                    i.id: i.position,
-                                              };
-                                              double minX = double.infinity;
-                                              double minY = double.infinity;
-                                              double maxRight =
-                                                  -double.infinity;
-                                              double maxBottom =
-                                                  -double.infinity;
-                                              for (final i in _placedItems) {
-                                                if (!_multiSelectedIds.contains(
-                                                  i.id,
-                                                )) {
-                                                  continue;
-                                                }
-                                                minX = math.min(
-                                                  minX,
-                                                  i.position.dx,
-                                                );
-                                                minY = math.min(
-                                                  minY,
-                                                  i.position.dy,
-                                                );
-                                                maxRight = math.max(
-                                                  maxRight,
-                                                  i.position.dx + i.width,
-                                                );
-                                                maxBottom = math.max(
-                                                  maxBottom,
-                                                  i.position.dy + i.height,
-                                                );
-                                              }
-                                              _groupOriginBounds =
-                                                  Rect.fromLTRB(
-                                                    minX,
-                                                    minY,
-                                                    maxRight,
-                                                    maxBottom,
-                                                  );
-                                            } else {
-                                              _groupDragAnchorOrigin = null;
-                                              _groupDragOrigins = {};
-                                              _groupOriginBounds = null;
-                                              if (!_multiSelectMode) {
-                                                for (var i in _placedItems) {
-                                                  i.isSelected = false;
-                                                }
-                                                item.isSelected = true;
-                                              }
-                                            }
-                                          });
-                                        }
-
-                              void dragUpdate(Offset delta) {
-                                          setState(() {
-                                            _dragRawPosition += delta;
-                                            final bool isGroupDrag =
-                                                _groupDragOrigins.isNotEmpty &&
-                                                _groupDragOrigins.containsKey(
-                                                  item.id,
-                                                );
-                                            if (isGroupDrag) {
-                                              // 🚀 [버그 수정] 각 모듈마다 따로 화면
-                                              // 경계에 맞춰 자르면(clamp) 폭이 서로
-                                              // 다른 모듈들이 경계에 닿는 시점이 달라
-                                              // 어떤 건 멈추고 어떤 건 계속 움직여서
-                                              // 서로 겹쳐버렸다 - 선택된 모듈 전체의
-                                              // 바운딩 박스 기준으로 delta를 딱 한 번만
-                                              // 잘라서, 항상 같은 delta를 모두에게
-                                              // 적용해 서로의 상대 위치를 유지한다.
-                                              final Rect bounds =
-                                                  _groupOriginBounds!;
-                                              final Offset rawDelta =
-                                                  _dragRawPosition -
-                                                  _groupDragAnchorOrigin!;
-                                              final double minDx = -bounds.left;
-                                              double maxDx =
-                                                  _panelWidth - bounds.right;
-                                              if (maxDx < minDx) {
-                                                maxDx = minDx;
-                                              }
-                                              final double minDy = -bounds.top;
-                                              double maxDy =
-                                                  _panelHeight - bounds.bottom;
-                                              if (maxDy < minDy) {
-                                                maxDy = minDy;
-                                              }
-                                              final Offset
-                                              clampedDelta = Offset(
-                                                rawDelta.dx.clamp(minDx, maxDx),
-                                                rawDelta.dy.clamp(minDy, maxDy),
-                                              );
-                                              final Offset snappedDelta =
-                                                  _snapToGrid(clampedDelta);
-                                              // 🚀 [버그 수정] 그룹
-                                              // 전체를 이 delta만큼
-                                              // 옮겼을 때 선택되지
-                                              // 않은 다른 모듈과
-                                              // 겹치면 이번 프레임의
-                                              // 이동은 통째로
-                                              // 취소한다(그룹끼리는
-                                              // 서로 겹침 검사에서
-                                              // 제외).
-                                              bool wouldCollide = false;
-                                              for (final entry
-                                                  in _groupDragOrigins
-                                                      .entries) {
-                                                final PlacedItem it =
-                                                    _placedItems.firstWhere(
-                                                      (x) => x.id == entry.key,
-                                                    );
-                                                final Offset newPos =
-                                                    entry.value + snappedDelta;
-                                                if (_overlapsAny(
-                                                  it,
-                                                  newPos,
-                                                  excludeIds: _multiSelectedIds,
-                                                )) {
-                                                  wouldCollide = true;
-                                                  break;
-                                                }
-                                              }
-                                              if (wouldCollide && !_dragFromOverlap) {
-                                                return;
-                                              }
-                                              for (final i in _placedItems) {
-                                                if (!_multiSelectedIds.contains(
-                                                      i.id,
-                                                    ) ||
-                                                    i.isLocked) {
-                                                  continue;
-                                                }
-                                                final Offset? origin =
-                                                    _groupDragOrigins[i.id];
-                                                if (origin == null) {
-                                                  continue;
-                                                }
-                                                i.position =
-                                                    origin + snappedDelta;
-                                              }
-                                            } else {
-                                              double clampedX = _dragRawPosition
-                                                  .dx
-                                                  .clamp(
-                                                    0.0,
-                                                    math.max(
-                                                      0.0,
-                                                      _panelWidth - item.width,
-                                                    ),
-                                                  );
-                                              double clampedY = _dragRawPosition
-                                                  .dy
-                                                  .clamp(
-                                                    0.0,
-                                                    math.max(
-                                                      0.0,
-                                                      _panelHeight -
-                                                          item.height,
-                                                    ),
-                                                  );
-                                              final gridSnapped = _snapToGrid(
-                                                Offset(clampedX, clampedY),
-                                              );
-                                              // 🚀 [복원] 안내선
-                                              // 계산만 하고(위치는
-                                              // 안 바꿈), 겹치는
-                                              // 자리로는 이동을
-                                              // 막되 X/Y를 각각
-                                              // 따로 검사해서
-                                              // 한쪽이 막혀도
-                                              // 다른 쪽으로는
-                                              // 벽을 따라
-                                              // 미끄러지듯
-                                              // 움직일 수 있게
-                                              // 한다.
-                                              final aligned = _snapToAlignment(
-                                                item,
-                                                gridSnapped,
-                                              );
-                                              if (_dragFromOverlap) {
-                                                item.position = aligned;
-                                                if (!_overlapsAny(item, aligned)) {
-                                                  _dragFromOverlap = false;
-                                                }
-                                              } else {
-                                              final Offset xOnly = Offset(
-                                                aligned.dx,
-                                                item.position.dy,
-                                              );
-                                              if (!_overlapsAny(item, xOnly)) {
-                                                item.position = xOnly;
-                                              }
-                                              final Offset yOnly = Offset(
-                                                item.position.dx,
-                                                aligned.dy,
-                                              );
-                                              if (!_overlapsAny(item, yOnly)) {
-                                                item.position = yOnly;
-                                              }
-                                              }
-                                            }
-                                          });
-                                        }
-
-                              void dragEnd() {
-                                          setState(() {
-                                            // DIN 레일 부품을 레일 위에 놓으면 세로 자리를 레일에 맞춘다.
-                                            if (_groupDragOrigins.isEmpty) {
-                                              _snapToRail(item);
-                                            }
-                                            // 스키드: 형강 위로 올렸으면 바닥에서 높이를 형강 윗면에 맞춘다.
-                                            if (_groupDragOrigins.isEmpty) {
-                                              _snapToSteel(item);
-                                            }
-                                            _activeItem = null;
-                                            _dragFromOverlap = false;
-                                            _alignGuideX = null;
-                                            _alignGuideY = null;
-                                            _groupDragAnchorOrigin = null;
-                                            _groupDragOrigins = {};
-                                            _groupOriginBounds = null;
-                                          });
-                                        }
-
-                              return Positioned(
-                                // 🚀 [버그 수정] 이 Positioned에
-                                // key가 없으면, 정렬 가이드선이
-                                // 조건부로 Stack children 목록에
-                                // 끼어들거나 빠질 때(예: 드래그
-                                // 도중 안내선이 나타남/사라짐)
-                                // 목록의 순서(인덱스)가 밀리면서
-                                // 플러터가 "같은 자리에 있던"
-                                // 엘리먼트를 다른 모듈 것으로
-                                // 착각해 재사용할 수 있었다.
-                                // 그러면 지금 드래그 중이던
-                                // 제스처가 엉뚱한 모듈의
-                                // onPanUpdate로 연결되어, 실제로
-                                // 다른(엉뚱한) 모듈의 위치가
-                                // 바뀌는 것처럼 보였다. id 기반
-                                // key를 달아 항상 같은 모듈에
-                                // 같은 엘리먼트가 매칭되게
-                                // 고정한다.
-                                key: ValueKey(item.id),
-                                left: item.position.dx - _kTouchHitPad,
-                                top: item.position.dy - _kTouchHitPad,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onPanStart: canDrag ? (_) => dragStart() : null,
-                                  onPanUpdate: canDrag ? (d) => dragUpdate(d.delta) : null,
-                                  onPanEnd: canDrag ? (_) => dragEnd() : null,
-                                  onTap: () => _onTapItem(item),
-                                  // 10-13: 길게 누르면 "여러 개 선택" 단추를 먼저 안 켜도 바로 고른다.
-                                  // 길게 누른 채 움직이면 끌기, 움직이지 않고 떼면 "여러 개 고르기"(10-16).
-                                  onLongPressStart: (_) {
-                                    _lpDragMoved = false;
-                                    _lpDragLast = Offset.zero;
-                                  },
-                                  onLongPressMoveUpdate: canDrag
-                                      ? (d) {
-                                          final Offset delta =
-                                              d.localOffsetFromOrigin - _lpDragLast;
-                                          _lpDragLast = d.localOffsetFromOrigin;
-                                          if (!_lpDragMoved) {
-                                            _lpDragMoved = true;
-                                            dragStart();
-                                          }
-                                          dragUpdate(delta);
-                                        }
-                                      : null,
-                                  onLongPressEnd: (_) {
-                                    if (_lpDragMoved) {
-                                      _lpDragMoved = false;
-                                      dragEnd();
-                                    } else {
-                                      _selectByLongPress(item);
-                                    }
-                                  },
-                                  child: Container(
-                                    width: item.width + _kTouchHitPad * 2,
-                                    height: item.height + _kTouchHitPad * 2,
-                                    color: Colors.transparent,
-                                    padding: const EdgeInsets.all(
-                                      _kTouchHitPad,
-                                    ),
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        _buildBoardItem(item),
-                                        // 크기 손잡이: 2배 넘게 키웠을 때만, 고른 부품 오른쪽 아래(화면에서 40dp).
-                                        if (_showResizeHandle(item))
-                                          _buildResizeHandle(item),
-                                        if (item.isLocked)
-                                          Positioned(
-                                            right: -2,
-                                            top: -2,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(3),
-                                              decoration: const BoxDecoration(
-                                                color: tossText,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.lock_rounded,
-                                                size: 10,
-                                                color: pureWhite,
-                                              ),
+                          ),
+                          clipBehavior: Clip.hardEdge,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              if (_backgroundImagePath != null &&
+                                  File(_backgroundImagePath!).existsSync())
+                                // 축척을 맞췄으면 그 자리·크기(mm)에, 아니면 판에 맞춰 깐다.
+                                _backgroundRect != null
+                                    ? Positioned.fromRect(
+                                        key: const ValueKey("board_background"),
+                                        rect: _backgroundRect!,
+                                        child: Opacity(
+                                          opacity: _backgroundOpacity,
+                                          child: ColorFiltered(
+                                            colorFilter: _backgroundFilter,
+                                            child: Image.file(
+                                              File(_backgroundImagePath!),
+                                              fit: BoxFit.fill,
                                             ),
                                           ),
+                                        ),
+                                      )
+                                    : Positioned.fill(
+                                        key: const ValueKey("board_background"),
+                                        child: Opacity(
+                                          opacity: _backgroundOpacity,
+                                          child: ColorFiltered(
+                                            colorFilter: _backgroundFilter,
+                                            child: Image.file(
+                                              File(_backgroundImagePath!),
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              CustomPaint(
+                                size: Size.infinite,
+                                painter: GridPainter(
+                                  gridSize: _gridSize > 0 ? _gridSize : 5.0,
+                                ),
+                              ),
+                              if (_isSkid) _buildSkidOverlay(),
+                              if (_previewItem != null &&
+                                  _mode == BoardMode.placeModule) ...[
+                                Positioned(
+                                  left: _previewItem!.position.dx,
+                                  top: _previewItem!.position.dy,
+                                  child: Opacity(
+                                    opacity: 0.5,
+                                    child: _buildBoardItem(_previewItem!),
+                                  ),
+                                ),
+                              ],
+
+                              // 🚀 [복원] 안내선 자체는 문제가
+                              // 없었다 - 아래 _placedItems.map()의
+                              // Positioned에 key가 있는 한, 이
+                              // 위젯들이 조건부로 나타났다 사라져도
+                              // 더 이상 목록 순서가 밀려서 엉뚱한
+                              // 모듈에 제스처가 연결되는 일이
+                              // 없다.
+                              if (_alignGuideX != null)
+                                Positioned(
+                                  left: _alignGuideX,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      width: 1.4,
+                                      color: alignGuideColor,
+                                    ),
+                                  ),
+                                ),
+                              if (_alignGuideY != null)
+                                Positioned(
+                                  top: _alignGuideY,
+                                  left: 0,
+                                  right: 0,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      height: 1.4,
+                                      color: alignGuideColor,
+                                    ),
+                                  ),
+                                ),
+
+                              // 경로 손잡이는 부품 아래에(정면·측면에서 부품을 잡으려다 경로가 열리지 않게).
+                              if (_isSkid && _mode == BoardMode.placeModule)
+                                ..._buildRouteHandles(),
+                              if (_isSkid && _plateId != kPlateMain) ...[
+                                ..._buildViewProxies(),
+                                ..._buildHiddenOutlines(),
+                              ],
+                              ..._placedItems.map((item) {
+                                // 10-16: "치수" 상태에서도 부품을 끌어 옮긴다(치수선은 부품을 따라온다).
+                                final bool canDrag = !item.isLocked;
+                                // 끌기 세 단계(손가락 끌기·길게 누른 채 끌기가 같이 쓴다).
+                                void dragStart() {
+                                  // 드래그 한 번 = undo 한 단계
+                                  // (onPanUpdate마다 쌓으면 되돌리기가
+                                  // 프레임 단위로 쪼개져 버린다).
+                                  final bool isGroupDrag =
+                                      _multiSelectMode &&
+                                      _multiSelectedIds.contains(item.id) &&
+                                      _multiSelectedIds.length > 1;
+                                  _pushUndo();
+                                  _dragFromOverlap = isGroupDrag
+                                      ? _placedItems.any(
+                                          (i) =>
+                                              _multiSelectedIds.contains(
+                                                i.id,
+                                              ) &&
+                                              _overlapsAny(
+                                                i,
+                                                i.position,
+                                                excludeIds: _multiSelectedIds,
+                                              ),
+                                        )
+                                      : _overlapsAny(item, item.position);
+                                  setState(() {
+                                    _dragRawPosition = item.position;
+                                    _activeItem = item;
+                                    if (isGroupDrag) {
+                                      _groupDragAnchorOrigin = item.position;
+                                      _groupDragOrigins = {
+                                        for (final i in _placedItems)
+                                          if (_multiSelectedIds.contains(i.id))
+                                            i.id: i.position,
+                                      };
+                                      double minX = double.infinity;
+                                      double minY = double.infinity;
+                                      double maxRight = -double.infinity;
+                                      double maxBottom = -double.infinity;
+                                      for (final i in _placedItems) {
+                                        if (!_multiSelectedIds.contains(i.id)) {
+                                          continue;
+                                        }
+                                        minX = math.min(minX, i.position.dx);
+                                        minY = math.min(minY, i.position.dy);
+                                        maxRight = math.max(
+                                          maxRight,
+                                          i.position.dx + i.width,
+                                        );
+                                        maxBottom = math.max(
+                                          maxBottom,
+                                          i.position.dy + i.height,
+                                        );
+                                      }
+                                      _groupOriginBounds = Rect.fromLTRB(
+                                        minX,
+                                        minY,
+                                        maxRight,
+                                        maxBottom,
+                                      );
+                                    } else {
+                                      _groupDragAnchorOrigin = null;
+                                      _groupDragOrigins = {};
+                                      _groupOriginBounds = null;
+                                      if (!_multiSelectMode) {
+                                        for (var i in _placedItems) {
+                                          i.isSelected = false;
+                                        }
+                                        item.isSelected = true;
+                                      }
+                                    }
+                                  });
+                                }
+
+                                void dragUpdate(Offset delta) {
+                                  setState(() {
+                                    _dragRawPosition += delta;
+                                    final bool isGroupDrag =
+                                        _groupDragOrigins.isNotEmpty &&
+                                        _groupDragOrigins.containsKey(item.id);
+                                    if (isGroupDrag) {
+                                      // 🚀 [버그 수정] 각 모듈마다 따로 화면
+                                      // 경계에 맞춰 자르면(clamp) 폭이 서로
+                                      // 다른 모듈들이 경계에 닿는 시점이 달라
+                                      // 어떤 건 멈추고 어떤 건 계속 움직여서
+                                      // 서로 겹쳐버렸다 - 선택된 모듈 전체의
+                                      // 바운딩 박스 기준으로 delta를 딱 한 번만
+                                      // 잘라서, 항상 같은 delta를 모두에게
+                                      // 적용해 서로의 상대 위치를 유지한다.
+                                      final Rect bounds = _groupOriginBounds!;
+                                      final Offset rawDelta =
+                                          _dragRawPosition -
+                                          _groupDragAnchorOrigin!;
+                                      final double minDx = -bounds.left;
+                                      double maxDx = _panelWidth - bounds.right;
+                                      if (maxDx < minDx) {
+                                        maxDx = minDx;
+                                      }
+                                      final double minDy = -bounds.top;
+                                      double maxDy =
+                                          _panelHeight - bounds.bottom;
+                                      if (maxDy < minDy) {
+                                        maxDy = minDy;
+                                      }
+                                      final Offset clampedDelta = Offset(
+                                        rawDelta.dx.clamp(minDx, maxDx),
+                                        rawDelta.dy.clamp(minDy, maxDy),
+                                      );
+                                      final Offset snappedDelta = _snapToGrid(
+                                        clampedDelta,
+                                      );
+                                      // 🚀 [버그 수정] 그룹
+                                      // 전체를 이 delta만큼
+                                      // 옮겼을 때 선택되지
+                                      // 않은 다른 모듈과
+                                      // 겹치면 이번 프레임의
+                                      // 이동은 통째로
+                                      // 취소한다(그룹끼리는
+                                      // 서로 겹침 검사에서
+                                      // 제외).
+                                      bool wouldCollide = false;
+                                      for (final entry
+                                          in _groupDragOrigins.entries) {
+                                        final PlacedItem it = _placedItems
+                                            .firstWhere(
+                                              (x) => x.id == entry.key,
+                                            );
+                                        final Offset newPos =
+                                            entry.value + snappedDelta;
+                                        if (_overlapsAny(
+                                          it,
+                                          newPos,
+                                          excludeIds: _multiSelectedIds,
+                                        )) {
+                                          wouldCollide = true;
+                                          break;
+                                        }
+                                      }
+                                      if (wouldCollide && !_dragFromOverlap) {
+                                        return;
+                                      }
+                                      for (final i in _placedItems) {
+                                        if (!_multiSelectedIds.contains(i.id) ||
+                                            i.isLocked) {
+                                          continue;
+                                        }
+                                        final Offset? origin =
+                                            _groupDragOrigins[i.id];
+                                        if (origin == null) {
+                                          continue;
+                                        }
+                                        i.position = origin + snappedDelta;
+                                      }
+                                    } else {
+                                      double clampedX = _dragRawPosition.dx
+                                          .clamp(
+                                            0.0,
+                                            math.max(
+                                              0.0,
+                                              _panelWidth - item.width,
+                                            ),
+                                          );
+                                      double clampedY = _dragRawPosition.dy
+                                          .clamp(
+                                            0.0,
+                                            math.max(
+                                              0.0,
+                                              _panelHeight - item.height,
+                                            ),
+                                          );
+                                      final gridSnapped = _snapToGrid(
+                                        Offset(clampedX, clampedY),
+                                      );
+                                      // 🚀 [복원] 안내선
+                                      // 계산만 하고(위치는
+                                      // 안 바꿈), 겹치는
+                                      // 자리로는 이동을
+                                      // 막되 X/Y를 각각
+                                      // 따로 검사해서
+                                      // 한쪽이 막혀도
+                                      // 다른 쪽으로는
+                                      // 벽을 따라
+                                      // 미끄러지듯
+                                      // 움직일 수 있게
+                                      // 한다.
+                                      final aligned = _snapToAlignment(
+                                        item,
+                                        gridSnapped,
+                                      );
+                                      if (_dragFromOverlap) {
+                                        item.position = aligned;
+                                        if (!_overlapsAny(item, aligned)) {
+                                          _dragFromOverlap = false;
+                                        }
+                                      } else {
+                                        final Offset xOnly = Offset(
+                                          aligned.dx,
+                                          item.position.dy,
+                                        );
+                                        if (!_overlapsAny(item, xOnly)) {
+                                          item.position = xOnly;
+                                        }
+                                        final Offset yOnly = Offset(
+                                          item.position.dx,
+                                          aligned.dy,
+                                        );
+                                        if (!_overlapsAny(item, yOnly)) {
+                                          item.position = yOnly;
+                                        }
+                                      }
+                                    }
+                                  });
+                                }
+
+                                void dragEnd() {
+                                  setState(() {
+                                    // DIN 레일 부품을 레일 위에 놓으면 세로 자리를 레일에 맞춘다.
+                                    if (_groupDragOrigins.isEmpty) {
+                                      _snapToRail(item);
+                                    }
+                                    // 스키드: 형강 위로 올렸으면 바닥에서 높이를 형강 윗면에 맞춘다.
+                                    if (_groupDragOrigins.isEmpty) {
+                                      _snapToSteel(item);
+                                    }
+                                    _activeItem = null;
+                                    _dragFromOverlap = false;
+                                    _alignGuideX = null;
+                                    _alignGuideY = null;
+                                    _groupDragAnchorOrigin = null;
+                                    _groupDragOrigins = {};
+                                    _groupOriginBounds = null;
+                                  });
+                                }
+
+                                return Positioned(
+                                  // 🚀 [버그 수정] 이 Positioned에
+                                  // key가 없으면, 정렬 가이드선이
+                                  // 조건부로 Stack children 목록에
+                                  // 끼어들거나 빠질 때(예: 드래그
+                                  // 도중 안내선이 나타남/사라짐)
+                                  // 목록의 순서(인덱스)가 밀리면서
+                                  // 플러터가 "같은 자리에 있던"
+                                  // 엘리먼트를 다른 모듈 것으로
+                                  // 착각해 재사용할 수 있었다.
+                                  // 그러면 지금 드래그 중이던
+                                  // 제스처가 엉뚱한 모듈의
+                                  // onPanUpdate로 연결되어, 실제로
+                                  // 다른(엉뚱한) 모듈의 위치가
+                                  // 바뀌는 것처럼 보였다. id 기반
+                                  // key를 달아 항상 같은 모듈에
+                                  // 같은 엘리먼트가 매칭되게
+                                  // 고정한다.
+                                  key: ValueKey(item.id),
+                                  left: item.position.dx - _kTouchHitPad,
+                                  top: item.position.dy - _kTouchHitPad,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onPanStart: canDrag
+                                        ? (_) => dragStart()
+                                        : null,
+                                    onPanUpdate: canDrag
+                                        ? (d) => dragUpdate(d.delta)
+                                        : null,
+                                    onPanEnd: canDrag ? (_) => dragEnd() : null,
+                                    onTap: () => _onTapItem(item),
+                                    // 10-13: 길게 누르면 "여러 개 선택" 단추를 먼저 안 켜도 바로 고른다.
+                                    // 길게 누른 채 움직이면 끌기, 움직이지 않고 떼면 "여러 개 고르기"(10-16).
+                                    onLongPressStart: (_) {
+                                      _lpDragMoved = false;
+                                      _lpDragLast = Offset.zero;
+                                    },
+                                    onLongPressMoveUpdate: canDrag
+                                        ? (d) {
+                                            final Offset delta =
+                                                d.localOffsetFromOrigin -
+                                                _lpDragLast;
+                                            _lpDragLast =
+                                                d.localOffsetFromOrigin;
+                                            if (!_lpDragMoved) {
+                                              _lpDragMoved = true;
+                                              dragStart();
+                                            }
+                                            dragUpdate(delta);
+                                          }
+                                        : null,
+                                    onLongPressEnd: (_) {
+                                      if (_lpDragMoved) {
+                                        _lpDragMoved = false;
+                                        dragEnd();
+                                      } else {
+                                        _selectByLongPress(item);
+                                      }
+                                    },
+                                    child: Container(
+                                      width: item.width + _kTouchHitPad * 2,
+                                      height: item.height + _kTouchHitPad * 2,
+                                      color: Colors.transparent,
+                                      padding: const EdgeInsets.all(
+                                        _kTouchHitPad,
+                                      ),
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          _buildBoardItem(item),
+                                          // 크기 손잡이: 2배 넘게 키웠을 때만, 고른 부품 오른쪽 아래(화면에서 40dp).
+                                          if (_showResizeHandle(item))
+                                            _buildResizeHandle(item),
+                                          if (item.isLocked)
+                                            Positioned(
+                                              right: -2,
+                                              top: -2,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  3,
+                                                ),
+                                                decoration: const BoxDecoration(
+                                                  color: tossText,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.lock_rounded,
+                                                  size: 10,
+                                                  color: pureWhite,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+                              // 저장본과 차이: 옮긴 부품의 옛 자리·지운 부품은 점선, 새 부품은 초록 점선.
+                              if (_showSavedDiff && !_pdfCapture)
+                                IgnorePointer(
+                                  child: CustomPaint(
+                                    size: Size.infinite,
+                                    painter: _SavedDiffPainter(
+                                      diff: _savedDiff(),
+                                      markScale: _markScale,
+                                    ),
+                                  ),
+                                ),
+                              // 치수·가상선은 부품 위에 그린다. 부품 아래에 두면 부품이 벽에
+                              // 붙을수록 치수 글자가 부품 뒤로 들어가 가려졌다.
+                              IgnorePointer(
+                                child: CustomPaint(
+                                  size: Size.infinite,
+                                  painter: DimensionPainter(
+                                    dimensions: _syncedDimensions,
+                                    activePoint: _dimensionStartPoint,
+                                    panelWidth: _panelWidth,
+                                    panelHeight: _panelHeight,
+                                    version: _dimensionsVersion,
+                                    markScale: _markScale,
+                                    style: _dimStyle,
+                                    items: _placedItems,
+                                    layer: 'board',
+                                    // 10-16: 첫 지점으로 찍은 부품, 아니면 고른 부품의 치수만 진하게
+                                    focusId: _pdfCapture
+                                        ? null
+                                        : _dimensionStartPoint?.id ??
+                                              _placedItems
+                                                  .where((i) => i.isSelected)
+                                                  .map((i) => i.id)
+                                                  .firstOrNull,
+                                  ),
+                                ),
+                              ),
+                              if (_mode == BoardMode.placeModule)
+                                for (final g in [
+                                  _previewItem,
+                                  _activeItem,
+                                  _routeGuideItem,
+                                ])
+                                  if (g != null)
+                                    for (final w in _buildGuidePaints(g))
+                                      IgnorePointer(child: w),
+                              // 정면·측면에서 평면 부품을 끄는 동안의 가상선(옆 부품 = 이 탭 부품 + 다른 평면 부품).
+                              if (_proxyGuideItem != null)
+                                for (final w in _buildGuidePaints(
+                                  _proxyGuideItem!,
+                                  others: [
+                                    ..._placedItems,
+                                    for (final p in _viewProxies)
+                                      if (p.it.id != _proxyDragId)
+                                        PlacedItem(
+                                          id: "view_${p.it.id}",
+                                          name: p.it.name,
+                                          position: p.rect.topLeft,
+                                          width: p.rect.width,
+                                          height: p.rect.height,
+                                        ),
+                                  ],
+                                ))
+                                  IgnorePointer(child: w),
+                              // 🚀 [신규] 완전히 빈 도면일 때, 처음
+                              // 여는 사람이 뭘 해야 할지 막막하지
+                              // 않도록 샘플 배치를 눌러보게 안내.
+                              // 스키드 정면·측면은 이 탭 부품이 없어도 평면 부품이 보이면 안내를 빼 가리지 않게 한다.
+                              if (_placedItems.isEmpty &&
+                                  _dimensions.isEmpty &&
+                                  _viewProxies.isEmpty &&
+                                  !_isLoadingProject)
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.dashboard_customize_outlined,
+                                          size: 36,
+                                          color: tossSubText.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          keepWords(
+                                            "아래 '부품'을 눌러 골라\n배치를 시작하십시오",
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: tossSubText.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        OutlinedButton.icon(
+                                          onPressed: _loadSampleLayout,
+                                          icon: const Icon(
+                                            Icons.auto_awesome_rounded,
+                                            size: 16,
+                                            color: tossBlue,
+                                          ),
+                                          label: const Text(
+                                            "샘플 배치 불러오기",
+                                            style: TextStyle(
+                                              color: tossBlue,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            minimumSize: const Size(40, 40),
+                                            side: const BorderSide(
+                                              color: tossBlue,
+                                            ),
+                                            backgroundColor: pureWhite,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ),
-                              );
-                            }),
-                            // 저장본과 차이: 옮긴 부품의 옛 자리·지운 부품은 점선, 새 부품은 초록 점선.
-                            if (_showSavedDiff && !_pdfCapture)
-                              IgnorePointer(
-                                child: CustomPaint(
-                                  size: Size.infinite,
-                                  painter: _SavedDiffPainter(
-                                    diff: _savedDiff(),
-                                    markScale: _markScale,
-                                  ),
-                                ),
-                              ),
-                            // 치수·가상선은 부품 위에 그린다. 부품 아래에 두면 부품이 벽에
-                            // 붙을수록 치수 글자가 부품 뒤로 들어가 가려졌다.
-                            IgnorePointer(
-                              child: CustomPaint(
-                                size: Size.infinite,
-                                painter: DimensionPainter(
-                                  dimensions: _syncedDimensions,
-                                  activePoint: _dimensionStartPoint,
-                                  panelWidth: _panelWidth,
-                                  panelHeight: _panelHeight,
-                                  version: _dimensionsVersion,
-                                  markScale: _markScale,
-                                  style: _dimStyle,
-                                  items: _placedItems,
-                                  // 10-16: 첫 지점으로 찍은 부품, 아니면 고른 부품의 치수만 진하게
-                                  focusId: _pdfCapture
-                                      ? null
-                                      : _dimensionStartPoint?.id ??
-                                      _placedItems
-                                          .where((i) => i.isSelected)
-                                          .map((i) => i.id)
-                                          .firstOrNull,
-                                ),
-                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // 10-16 캐드식: 가로·세로 치수와 판 크기는 판 밖 여백에(판에 잘리지 않게 판 바깥 층).
+                    if (_dimStyle == 'cad')
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: _panelWidth,
+                        height: _panelHeight,
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: DimensionPainter(
+                              dimensions: _syncedDimensions,
+                              panelWidth: _panelWidth,
+                              panelHeight: _panelHeight,
+                              version: _dimensionsVersion,
+                              markScale: _markScale,
+                              style: _dimStyle,
+                              items: _placedItems,
+                              layer: 'margin',
+                              focusId:
+                                  _dimensionStartPoint?.id ??
+                                  _placedItems
+                                      .where((i) => i.isSelected)
+                                      .map((i) => i.id)
+                                      .firstOrNull,
                             ),
-                            if (_mode == BoardMode.placeModule)
-                              for (final g in [
-                                _previewItem,
-                                _activeItem,
-                                _routeGuideItem,
-                              ])
-                                if (g != null)
-                                  for (final w in _buildGuidePaints(g))
-                                    IgnorePointer(child: w),
-                            // 정면·측면에서 평면 부품을 끄는 동안의 가상선(옆 부품 = 이 탭 부품 + 다른 평면 부품).
-                            if (_proxyGuideItem != null)
-                              for (final w in _buildGuidePaints(
-                                _proxyGuideItem!,
-                                others: [
-                                  ..._placedItems,
-                                  for (final p in _viewProxies)
-                                    if (p.it.id != _proxyDragId)
-                                      PlacedItem(
-                                        id: "view_${p.it.id}",
-                                        name: p.it.name,
-                                        position: p.rect.topLeft,
-                                        width: p.rect.width,
-                                        height: p.rect.height,
-                                      ),
-                                ],
-                              ))
-                                IgnorePointer(child: w),
-                            // 🚀 [신규] 완전히 빈 도면일 때, 처음
-                            // 여는 사람이 뭘 해야 할지 막막하지
-                            // 않도록 샘플 배치를 눌러보게 안내.
-                            // 스키드 정면·측면은 이 탭 부품이 없어도 평면 부품이 보이면 안내를 빼 가리지 않게 한다.
-                            if (_placedItems.isEmpty &&
-                                _dimensions.isEmpty &&
-                                _viewProxies.isEmpty &&
-                                !_isLoadingProject)
-                              Positioned.fill(
-                                child: Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.dashboard_customize_outlined,
-                                        size: 36,
-                                        color: tossSubText.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        keepWords("아래 '부품'을 눌러 골라\n배치를 시작하십시오"),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: tossSubText.withValues(
-                                            alpha: 0.7,
-                                          ),
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      OutlinedButton.icon(
-                                        onPressed: _loadSampleLayout,
-                                        icon: const Icon(
-                                          Icons.auto_awesome_rounded,
-                                          size: 16,
-                                          color: tossBlue,
-                                        ),
-                                        label: const Text(
-                                          "샘플 배치 불러오기",
-                                          style: TextStyle(
-                                            color: tossBlue,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          minimumSize: const Size(40, 40),
-                                          side: const BorderSide(
-                                            color: tossBlue,
-                                          ),
-                                          backgroundColor: pureWhite,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  // 판 가로·세로 표기: 치수 숫자처럼 줄여 볼 때도 화면에서 12px 안팎으로 읽히게
-                  // 키우고(_sizeLabelFont), 판 바로 바깥에 붙인다.
-                  Positioned(
-                    key: const ValueKey("panel_w_label"),
-                    top: -_sizeLabelFont * 1.6,
-                    child: Text(
-                      "$_sizeLabelW: ${_panelWidth.toInt()} mm",
-                      style: TextStyle(
-                        color: Colors.blueGrey.shade700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: _sizeLabelFont,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    key: const ValueKey("panel_h_label"),
-                    left: -_sizeLabelFont * 1.6,
-                    child: RotatedBox(
-                      quarterTurns: 3,
-                      child: Text(
-                        "$_sizeLabelH: ${_panelHeight.toInt()} mm",
-                        style: TextStyle(
-                          color: Colors.blueGrey.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: _sizeLabelFont,
+                    // 판 가로·세로 표기: 치수 숫자처럼 줄여 볼 때도 화면에서 12px 안팎으로 읽히게
+                    // 키우고(_sizeLabelFont), 판 바로 바깥에 붙인다. 캐드식은 여백 맨 바깥 치수가 대신한다.
+                    if (_dimStyle != 'cad')
+                      Positioned(
+                        key: const ValueKey("panel_w_label"),
+                        top: -_sizeLabelFont * 1.6,
+                        child: Text(
+                          "$_sizeLabelW: ${_panelWidth.toInt()} mm",
+                          style: TextStyle(
+                            color: Colors.blueGrey.shade700,
+                            fontWeight: FontWeight.bold,
+                            fontSize: _sizeLabelFont,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              );
-            },
+                    if (_dimStyle != 'cad')
+                      Positioned(
+                        key: const ValueKey("panel_h_label"),
+                        left: -_sizeLabelFont * 1.6,
+                        child: RotatedBox(
+                          quarterTurns: 3,
+                          child: Text(
+                            "$_sizeLabelH: ${_panelHeight.toInt()} mm",
+                            style: TextStyle(
+                              color: Colors.blueGrey.shade700,
+                              fontWeight: FontWeight.bold,
+                              fontSize: _sizeLabelFont,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
     );
+  }
+
+  /// 캐드식 여백의 치수를 눌렀을 때(10-16): 화면 자리 → 판 좌표, 판 밖이면 치수 찾기.
+  void _onTapMargin(Offset viewport) {
+    if (_mode != BoardMode.measureDimension || _dimensionStartPoint != null) {
+      return;
+    }
+    final Offset p = MatrixUtils.transformPoint(
+      Matrix4.inverted(_viewerController.value),
+      viewport,
+    );
+    if ((Offset.zero & Size(_panelWidth, _panelHeight)).contains(p)) return;
+    final PlacedDimension? hit = _findDimensionNear(p);
+    if (hit == null) return;
+    HapticFeedback.lightImpact();
+    _showDimensionActionsSheet(hit);
   }
 
   // 🚀 [신규] 미니맵 - 전체 도면을 축소해서 보여주고, InteractiveViewer의

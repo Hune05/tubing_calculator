@@ -1320,18 +1320,30 @@ String dimStyleLabel(String s) => switch (s) {
   _ => '앱식',
 };
 
-/// 캐드식 치수선 자리(10-16). 치수선은 두 점 부품 바깥(가로는 위, 세로는 왼쪽)에 [gap] 띄워 두고,
-/// 다른 치수선과 [gap]보다 가까우면서 구간이 겹치면 한 칸씩 더 바깥으로. 도면 밖으로 나가면
-/// 반대쪽(아래·오른쪽)으로. [obstacles](부품 테두리)를 가로지르지 않는 가까운 자리를 고른다. 대각선은 그대로. [origin1]·[origin2]는 보조선이 시작하는 원래 점.
-Map<String, DimensionLane> layoutCadDimensionLanes(
+/// 캐드식 치수 자리(10-16): 판 밖 여백에 그린다. 가로 치수는 위 여백, 세로 치수는 왼쪽 여백에
+/// 판에서 [gap]씩 바깥으로 한 줄씩. 짧은 치수가 판 가까이, 구간이 안 겹치면(끝만 닿는 체인 포함)
+/// 같은 줄. 대각선은 판 안에 그대로(줄 0). [topLanes]·[leftLanes]는 쓴 줄 수, 판 크기 치수는
+/// 그 바깥 줄(위 [topLanes]번, 왼쪽 [leftLanes]번)에 둔다.
+class MarginDimLayout {
+  final Map<String, DimensionLane> lanes;
+  final int topLanes;
+  final int leftLanes;
+  const MarginDimLayout(this.lanes, this.topLanes, this.leftLanes);
+
+  /// k번째 줄의 선 자리(판 위·왼쪽 테두리에서 바깥으로, 음수).
+  static double lineAt(int k, double gap) => -gap * (k + 1);
+
+  /// 여백 폭: 판 크기 줄까지 + 맨 바깥 숫자 자리.
+  double topMargin(double gap) => gap * (topLanes + 1) + gap * 0.9;
+  double leftMargin(double gap) => gap * (leftLanes + 1) + gap * 0.9;
+}
+
+MarginDimLayout layoutMarginDimensionLanes(
   List<PlacedDimension> dims, {
   required double gap,
-  double panelWidth = 0,
-  double panelHeight = 0,
-  List<Rect> obstacles = const [],
 }) {
   final out = <String, DimensionLane>{};
-  final placed = <(bool, double, double, double)>[]; // (가로?, 선 자리, 구간 시작, 끝)
+  final rows = <bool, List<List<(double, double)>>>{true: [], false: []};
   final items =
       <(PlacedDimension, ({Offset p1, Offset p2, double distance}), bool)>[];
   for (final d in dims) {
@@ -1346,86 +1358,26 @@ Map<String, DimensionLane> layoutCadDimensionLanes(
   }
   items.sort((a, b) => a.$2.distance.compareTo(b.$2.distance));
   for (final (d, e, h) in items) {
-    final Rect r1 = d.p1.boundingBox, r2 = d.p2.boundingBox;
     final double lo = h
         ? math.min(e.p1.dx, e.p2.dx)
         : math.min(e.p1.dy, e.p2.dy);
     final double hi = h
         ? math.max(e.p1.dx, e.p2.dx)
         : math.max(e.p1.dy, e.p2.dy);
-    bool clash(double pos) => placed.any(
-      (p) =>
-          p.$1 == h &&
-          (p.$2 - pos).abs() < gap * 0.9 &&
-          lo < p.$4 - 0.01 &&
-          hi > p.$3 + 0.01,
-    );
-    final double limit = h ? panelHeight : panelWidth;
-    // 자리 후보: 두 부품 위(왼쪽) 바깥, 아래(오른쪽) 바깥, 원래 줄 둘레. 숫자가 선 위에 얹히니
-    // 위 끝은 한 칸쯤 남긴다. 다른 치수선과 겹치지 않고, 그 구간에서 부품을 가로지르지 않는
-    // 자리 중 원래 줄에서 가장 가까운 곳. 다 막히면 부품은 가로질러도 가장 가까운 곳.
-    final double center = h ? e.p1.dy : e.p1.dx;
-    final double up =
-        (h ? math.min(r1.top, r2.top) : math.min(r1.left, r2.left)) - gap;
-    final double down =
-        (h ? math.max(r1.bottom, r2.bottom) : math.max(r1.right, r2.right)) +
-        gap;
-    // 선과 그 위(세로는 왼쪽)에 얹히는 숫자 자리가 부품 위를 지나는 길이. 0이면 안 닿음.
-    // 부품 가운데(이름 글자 자리) 위를 지나면 더 나쁘게 친다.
-    double crossCost(double c) {
-      final double c0 = c - gap * 0.8, c1 = c + gap * 0.25;
-      double cost = 0;
-      for (final o in obstacles) {
-        final double pLo = h ? o.top : o.left, pHi = h ? o.bottom : o.right;
-        final double aLo = h ? o.left : o.top, aHi = h ? o.right : o.bottom;
-        if (!(c1 > pLo && c0 < pHi)) continue;
-        final double run = math.min(hi, aHi) - math.max(lo, aLo);
-        if (run <= 0) continue;
-        cost += run;
-        final double mid = (pLo + pHi) / 2;
-        final double nameHalf = math.min((pHi - pLo) / 2, 60);
-        if ((c - mid).abs() < nameHalf) cost += 1000;
-      }
-      return cost;
+    final list = rows[h]!;
+    int k = 0;
+    while (k < list.length &&
+        list[k].any((r) => lo < r.$2 - 0.01 && hi > r.$1 + 0.01)) {
+      k++;
     }
-
-    bool inRange(double c) =>
-        c >= gap * 0.9 && (limit <= 0 || c <= limit - gap * 0.3);
-    double? pos;
-    double best = double.infinity;
-    // 후보: 바깥 자리들 + (다 막힌 도면용) 판 전체를 반 칸씩
-    void tryAll(Iterable<double> cands) {
-      for (final c in cands) {
-        if (!inRange(c) || clash(c)) continue;
-        final double cost = crossCost(c);
-        final double score =
-            (c - center).abs() + (cost > 0 ? 1e6 + cost * 50 : 0);
-        if (score < best) {
-          best = score;
-          pos = c;
-        }
-      }
-    }
-
-    tryAll([
-      for (int k = 0; k < 60; k++) ...[
-        up - gap * k,
-        down + gap * k,
-        center - gap * k,
-        center + gap * k,
-      ],
-    ]);
-    // 다 막힌 도면(덕트가 판을 가로지름 등): 판 전체를 반 칸씩 훑어 덜 가리는 자리
-    if (best >= 1e6 && limit > 0) {
-      tryAll([for (double c = gap; c < limit; c += gap / 2) c]);
-    }
-    final double at = pos ?? up; // 둘 다 막히면(아주 좁은 도면) 위쪽 첫 자리
-    placed.add((h, at, lo, hi));
-    final Offset a = h ? Offset(e.p1.dx, at) : Offset(at, e.p1.dy);
-    final Offset b = h ? Offset(e.p2.dx, at) : Offset(at, e.p2.dy);
-    out[d.id] = DimensionLane(a, b, e.distance, 1, e.p1, e.p2);
+    if (k == list.length) list.add([]);
+    list[k].add((lo, hi));
+    final double pos = MarginDimLayout.lineAt(k, gap);
+    final Offset a = h ? Offset(e.p1.dx, pos) : Offset(pos, e.p1.dy);
+    final Offset b = h ? Offset(e.p2.dx, pos) : Offset(pos, e.p2.dy);
+    out[d.id] = DimensionLane(a, b, e.distance, k + 1, e.p1, e.p2);
   }
-  return out;
+  return MarginDimLayout(out, rows[true]!.length, rows[false]!.length);
 }
 
 /// 캐드식 치수선이 피해 갈 부품 테두리(메모 글자는 뺀다).
