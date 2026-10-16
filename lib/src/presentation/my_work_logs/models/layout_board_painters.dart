@@ -12,7 +12,6 @@ const Color _centerDimColor = Color(0xFF007580); // 센터: 파란색(틸)
 const Color _diagonalDimColor = Color(0xFF8B5CF6); // 대각선: 보라색
 // 도면 그림 색은 토큰으로 바꾸지 않는다(그림 비교 테스트가 윈도·리눅스 값을 따로 들고 있다).
 const Color _warningRed = Color(0xFFF04438);
-const Color _pureWhite = Color(0xFFFFFFFF);
 const Color _tossSubText = Color(0xFF5F6B78);
 const Color _tossText = Color(0xFF191F28);
 
@@ -286,6 +285,7 @@ Rect? drawCadDimensionLine(
   Rect? bounds,
   double scale = 1,
   bool onLine = false,
+  TextSpan? span,
 }) {
   strokeWidth *= scale;
   if (distance < 1) return null; // 사실상 붙어있으면 표시할 게 없음
@@ -310,7 +310,8 @@ Rect? drawCadDimensionLine(
   final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
 
   final textSpan = TextSpan(
-    text: cadDimensionLabel(prefix, distance),
+    text: span == null ? cadDimensionLabel(prefix, distance) : null,
+    children: span == null ? null : [span],
     style: TextStyle(
       color: color,
       fontSize: 10 * scale,
@@ -480,7 +481,7 @@ class DimensionPainter extends CustomPainter {
       // 지금 보는 부품과 상관없는 치수는 옅게(그 부품에 치수가 있을 때만).
       final bool faded = focusHasDims && dim.p1.id != focusId && dim.p2.id != focusId;
       if (faded) {
-        canvas.saveLayer(null, Paint()..color = const Color(0x40000000));
+        canvas.saveLayer(null, Paint()..color = const Color(0x2E000000));
       }
       // 띄운 치수: 원래 점에서 띄운 선까지 옅은 점선(보조선).
       if (lane.shifted) {
@@ -502,7 +503,9 @@ class DimensionPainter extends CustomPainter {
       Color dColor = dim.type == DimensionType.center
           ? _centerDimColor
           : _edgeDimColor;
-      String labelPrefix = dim.type == DimensionType.center ? "센터" : "측면";
+      // 10-16: 숫자 칸을 짧게 — "센터"·"측면"은 색으로 이미 구분되고 도면 단위는 mm라 뺀다.
+      // 번호는 부품 위 동그라미 대신 칸 안 앞에 작게(동그라미가 부품 이름을 덮었다).
+      String labelPrefix = "";
 
       // 🚀 [신규] 대각선 모드면 축 기준 대신 실제 각도를 라벨에 표시한다.
       if (dim.isDiagonal) {
@@ -515,7 +518,7 @@ class DimensionPainter extends CustomPainter {
             180 /
             math.pi;
         final double normalized = angleDeg < 0 ? angleDeg + 360 : angleDeg;
-        labelPrefix = "대각 ${normalized.toInt()}°";
+        labelPrefix = "대각 ${normalized.toInt()}° ";
       }
 
       // 🚀 [신규] 안전 이격거리처럼 규정과 관련된 치수는 굵은 선 +
@@ -531,7 +534,7 @@ class DimensionPainter extends CustomPainter {
           dim.minGapMm != null && endpoints.distance < dim.minGapMm!;
       if (violatesMinGap) {
         dColor = _warningRed;
-        labelPrefix = "⚠ 최소 ${dim.minGapMm!.toInt()}mm 미달";
+        labelPrefix = "⚠ 최소 ${dim.minGapMm!.toInt()} 미달 ";
       }
 
       drawCadDimensionLine(
@@ -547,29 +550,18 @@ class DimensionPainter extends CustomPainter {
             : null,
         scale: markScale,
         onLine: true,
-      );
-
-      // 🚀 [신규] 치수선마다 번호 배지를 달아서, 도면이 복잡해져도
-      // 사진/PDF로 내보낸 치수 목록표와 대조해볼 수 있게 한다.
-      final Offset badgeCenter = endpoints.p1;
-      canvas.drawCircle(badgeCenter, 8 * markScale, Paint()..color = dColor);
-      final numberSpan = TextSpan(
-        text: "${i + 1}",
-        style: TextStyle(
-          color: _pureWhite,
-          fontSize: 9 * markScale,
-          fontWeight: FontWeight.w800,
-        ),
-      );
-      final numberPainter = TextPainter(
-        text: numberSpan,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      numberPainter.paint(
-        canvas,
-        Offset(
-          badgeCenter.dx - numberPainter.width / 2,
-          badgeCenter.dy - numberPainter.height / 2,
+        span: TextSpan(
+          children: [
+            TextSpan(
+              text: "${i + 1}  ",
+              style: TextStyle(
+                fontSize: 8 * markScale,
+                fontWeight: FontWeight.w700,
+                color: dColor.withValues(alpha: 0.6),
+              ),
+            ),
+            TextSpan(text: "$labelPrefix${endpoints.distance.round()}"),
+          ],
         ),
       );
 
