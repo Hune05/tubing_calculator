@@ -149,4 +149,34 @@ void main() {
     expect(app.width / app.height, closeTo(0.75, 0.002));
     expect((cad.width / cad.height - 0.75).abs(), greaterThan(0.004));
   });
+
+  testWidgets('판 테두리가 부품을 밀지 않는다: (0,0) 부품은 판 왼쪽 위 그대로, 판 높이만 한 부품은 판 안에 꼭 맞음', (t) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode({
+        'projectId': null,
+        'projectName': 'T',
+        'panelWidth': 600,
+        'panelHeight': 800,
+        'items': [
+          {'type': 'item', 'id': 'duct', 'name': 'D', 'x': 0, 'y': 0, 'w': 60, 'h': 800},
+        ],
+        'dimensions': <Map>[],
+      }),
+    });
+    t.view.physicalSize = const Size(780, 1688);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await t.pump(const Duration(milliseconds: 100));
+    await t.pumpAndSettle();
+    await t.tap(find.text('이어하기'));
+    await t.pumpAndSettle();
+    final state = t.state(find.byType(LayoutBoardPage)) as dynamic;
+    final board = state.debugBoardRect() as Rect;
+    final item = t.getRect(find.byKey(const ValueKey('duct')));
+    expect(item.topLeft.dx, closeTo(board.left, 0.01));
+    expect(item.topLeft.dy, closeTo(board.top, 0.01));
+    expect(item.bottom, closeTo(board.bottom, 0.01));
+  });
 }

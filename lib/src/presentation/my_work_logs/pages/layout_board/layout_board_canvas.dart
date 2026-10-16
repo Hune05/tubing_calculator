@@ -113,9 +113,13 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                           key: _boardKey,
                           width: _panelWidth,
                           height: _panelHeight,
+                          // 10-16: 판 테두리는 부품 위에 겹쳐 그린다. 바탕(decoration)에 두면 테두리 3이
+                          // 안쪽 여백이 되어 부품 전체가 3mm 밀리고, 판 높이만 한 부품(덕트 800)이 끝에서 잘렸다.
+                          foregroundDecoration: BoxDecoration(
+                            border: Border.all(color: tossText, width: 3),
+                          ),
                           decoration: BoxDecoration(
                             color: pureWhite,
-                            border: Border.all(color: tossText, width: 3),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.1),
