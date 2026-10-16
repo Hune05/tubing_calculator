@@ -15,6 +15,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
       if (_dimStyle == 'cad') {
         image = await _captureWithMargin(boundary);
       } else {
+        _lastCaptureMm = boundary.size;
         image = await boundary.toImage(
           pixelRatio: layoutCapturePixelRatio(boundary.size),
         );
@@ -35,6 +36,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
     final m = layoutMarginDimensionLanes(_syncedDimensions, gap: g);
     final double left = m.leftMargin(g), top = m.topMargin(g), pad = g * 0.5;
     final Size whole = Size(board.width + left + pad, board.height + top + pad);
+    _lastCaptureMm = whole;
     final double pr = layoutCapturePixelRatio(whole);
     final ui.Image boardImg = await boundary.toImage(pixelRatio: pr);
     final recorder = ui.PictureRecorder();
@@ -399,6 +401,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
               double,
               List<PlacedDimension>,
               List<PlacedItem>,
+              Size,
             )
           >[];
       // 찍다 실패해도 원래 보던 판으로 돌아온다(10-08: 다른 판에 머물렀다).
@@ -418,6 +421,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
             _panelHeight,
             List.of(_dimensions),
             List.of(_placedItems),
+            _lastCaptureMm ?? Size(_panelWidth, _panelHeight),
           ));
         }
       } finally {
@@ -444,15 +448,29 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
       final String author = (await loadLayoutOwner()).name ?? "";
       final String today = DateTime.now().toString().split(' ')[0];
       const double ptPerMm = 72 / 25.4;
-      for (final (plateId, imageBytes, plateW, plateH, plateDims, plateItems)
+      for (final (
+            plateId,
+            imageBytes,
+            plateW,
+            plateH,
+            plateDims,
+            plateItems,
+            shotMm,
+          )
           in shots) {
         final image = pw.MemoryImage(imageBytes);
         // 머리글(약 78pt)·표제란(약 46pt)·사이 여백을 뺀 자리에 들어가는 표준 축척.
         final double availW = pageFmt.availableWidth;
         final double availH = pageFmt.availableHeight - 78 - 46 - 24;
-        final double scaleN = pdfStandardScale(plateW, plateH, availW, availH);
-        final double imgW = plateW / scaleN * ptPerMm;
-        final double imgH = plateH / scaleN * ptPerMm;
+        // 그림 크기는 찍은 그림 그대로(캐드식은 판 + 여백 치수까지, 축척은 판과 같다).
+        final double scaleN = pdfStandardScale(
+          shotMm.width,
+          shotMm.height,
+          availW,
+          availH,
+        );
+        final double imgW = shotMm.width / scaleN * ptPerMm;
+        final double imgH = shotMm.height / scaleN * ptPerMm;
         // 자 눈금: 1:20까지는 100mm, 더 작으면 1000mm.
         final double rulerMm = scaleN <= 20 ? 100 : 1000;
         final double rulerPt = rulerMm / scaleN * ptPerMm;
@@ -554,7 +572,10 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                   ),
                   pw.SizedBox(height: 8),
                   // 표제란: 도면 번호·리비전·작성자·날짜·축척·자 눈금.
+                  // 높이를 정해 둔다(10-16): 안 정하면 칸을 위아래로 늘이는(stretch) 줄이 끝없는 높이를
+                  // 받아 쪽 배치가 깨지고, 위 배치도 그림까지 통째로 빠졌다.
                   pw.Container(
+                    height: 44,
                     decoration: pw.BoxDecoration(
                       border: pw.Border.all(
                         color: PdfColors.grey700,
@@ -571,7 +592,9 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                         pw.Expanded(child: titleCell("리비전", _revision)),
                         pw.Expanded(flex: 2, child: titleCell("작성자", author)),
                         pw.Expanded(flex: 2, child: titleCell("날짜", today)),
+                        // 축척 값("1:5 A4 가로")이 좁은 칸에서 두 줄로 넘어가 잘리지 않게 넓게.
                         pw.Expanded(
+                          flex: 2,
                           child: titleCell(
                             "축척",
                             "$scaleText ${opts.paper}${opts.landscape ? " 가로" : ""}",

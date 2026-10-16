@@ -385,6 +385,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   final TransformationController _viewerController = TransformationController();
 
   bool _pdfCapture = false;
+  // 마지막으로 찍은 그림의 도면 크기(mm). 캐드식은 판 + 위·왼쪽 여백(10-16, PDF 축척 계산용).
+  Size? _lastCaptureMm;
 
   Size? _viewportSize;
 
