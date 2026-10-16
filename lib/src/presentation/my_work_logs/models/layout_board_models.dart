@@ -1255,6 +1255,7 @@ Map<String, DimensionLane> layoutDimensionLanes(
   List<PlacedDimension> dims, {
   required double gap,
 }) {
+  // 도면 밖(위쪽·왼쪽 0 아래)으로 나가면 도면 테두리에 잘려 안 보인다 → 그 줄은 반대쪽(아래·오른쪽)으로 띄운다.
   final out = <String, DimensionLane>{};
   // (가로?, 줄 위치) → 그 줄의 치수들
   final groups = <String, List<(PlacedDimension, Offset, Offset, double)>>{};
@@ -1274,6 +1275,7 @@ Map<String, DimensionLane> layoutDimensionLanes(
     // 짧은 것부터 안쪽 줄에
     list.sort((a, b) => a.$4.compareTo(b.$4));
     final lanes = <List<(double, double)>>[];
+    final placed = <(PlacedDimension, Offset, Offset, double, int)>[];
     for (final (d, a, b, dist) in list) {
       final double lo = h ? math.min(a.dx, b.dx) : math.min(a.dy, b.dy);
       final double hi = h ? math.max(a.dx, b.dx) : math.max(a.dy, b.dy);
@@ -1286,7 +1288,13 @@ Map<String, DimensionLane> layoutDimensionLanes(
         k++;
       }
       lanes[k].add((lo, hi));
-      final Offset shift = h ? Offset(0, -gap * k) : Offset(-gap * k, 0);
+      placed.add((d, a, b, dist, k));
+    }
+    final double base = h ? list.first.$2.dy : list.first.$2.dx;
+    final int maxK = lanes.length - 1;
+    final double dir = base - gap * maxK >= 0 ? -1 : 1;
+    for (final (d, a, b, dist, k) in placed) {
+      final Offset shift = h ? Offset(0, dir * gap * k) : Offset(dir * gap * k, 0);
       out[d.id] = DimensionLane(a + shift, b + shift, dist, k, a, b);
     }
   });

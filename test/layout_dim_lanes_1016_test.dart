@@ -35,21 +35,27 @@ void main() {
   });
 
   group('겹 치수', () {
-    final a = box('a', 0, 0); // (20,20)
-    final b = box('b', 0, 100); // (20,120)
-    final c = box('c', 0, 210); // (20,230)
-    final d = box('d', 0, 320); // (20,340)
+    final a = box('a', 100, 0); // (120,20)
+    final b = box('b', 100, 100); // (120,120)
+    final c = box('c', 100, 210); // (120,230)
+    final d = box('d', 100, 320); // (120,340)
     test('한 부품에서 아래 셋으로 — 짧은 것 그대로, 나머지 왼쪽으로 한 칸씩', () {
       final dims = [dim('ad', a, d), dim('ab', a, b), dim('ac', a, c)];
       final l = layoutDimensionLanes(dims, gap: 20);
       expect(l['ab']!.lane, 0);
       expect(l['ac']!.lane, 1);
       expect(l['ad']!.lane, 2);
-      expect(l['ac']!.p1.dx, 0); // 20 - 20
-      expect(l['ad']!.p1.dx, -20);
+      expect(l['ac']!.p1.dx, 100); // 120 - 20
+      expect(l['ad']!.p1.dx, 80);
       // 값은 그대로
       expect(l['ad']!.distance, 320);
-      expect(l['ad']!.origin1, const Offset(20, 20));
+      expect(l['ad']!.origin1, const Offset(120, 20));
+    });
+    test('도면 왼쪽 끝에 붙어 있으면 오른쪽으로 띄운다(테두리에 잘리지 않게)', () {
+      final e = box('e', 0, 0), f = box('f', 0, 100), g = box('g', 0, 210);
+      final l = layoutDimensionLanes([dim('ef', e, f), dim('eg', e, g)], gap: 30);
+      expect(l['eg']!.lane, 1);
+      expect(l['eg']!.p1.dx, 50); // 20 + 30
     });
     test('끝만 닿는 체인(a→b, b→c)은 같은 줄', () {
       final l = layoutDimensionLanes([dim('ab', a, b), dim('bc', b, c)], gap: 20);
