@@ -54,6 +54,24 @@ void main() {
       final y = l['ab']!.p1.dy;
       expect(y < 120 - 5 || y > 240 + 15, isTrue, reason: '$y');
     });
+    test('사용자 배치(덕트 셋 가로·둘 세로): 다 막히면 덕트 이름 자리(가운데)를 피한다', () {
+      PlacedItem d(String id, double x, double y, double w, double hh) =>
+          PlacedItem(id: id, name: id, position: Offset(x, y), width: w, height: hh);
+      final t = d('t', 63, 7, 470, 60), m = d('m', 63, 247, 470, 60), b = d('b', 63, 477, 470, 60);
+      final l = d('l', 3, 7, 50, 785), r = d('r', 537, 7, 50, 785);
+      final lanes = layoutCadDimensionLanes(
+        [dim('tm', t, m), dim('mb', m, b), dim('lr', l, r)],
+        gap: 30,
+        panelWidth: 600,
+        panelHeight: 800,
+        obstacles: dimObstacles([t, m, b, l, r]),
+      );
+      for (final k in ['tm', 'mb']) {
+        final x = lanes[k]!.p1.dx;
+        expect((x - 298).abs() >= 60, isTrue, reason: '$k x=$x');
+        expect(x > 63 && x < 533, isTrue, reason: '$k x=$x'); // 세로 덕트 위는 아님
+      }
+    });
     test('위에 자리가 없으면(도면 위 끝) 아래로', () {
       final a = box('a', 100, 5), b = box('b', 300, 5);
       final l = layoutCadDimensionLanes([dim('ab', a, b)], gap: 20, panelWidth: 600, panelHeight: 600, obstacles: dimObstacles([a, b]));

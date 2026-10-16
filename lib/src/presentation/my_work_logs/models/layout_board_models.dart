@@ -1370,39 +1370,59 @@ Map<String, DimensionLane> layoutCadDimensionLanes(
     final double down =
         (h ? math.max(r1.bottom, r2.bottom) : math.max(r1.right, r2.right)) +
         gap;
-    // 선과 그 위(세로는 왼쪽)에 얹히는 숫자 자리까지 부품에 닿는지
-    bool crosses(double c) {
+    // 선과 그 위(세로는 왼쪽)에 얹히는 숫자 자리가 부품 위를 지나는 길이. 0이면 안 닿음.
+    // 부품 가운데(이름 글자 자리) 위를 지나면 더 나쁘게 친다.
+    double crossCost(double c) {
       final double c0 = c - gap * 0.8, c1 = c + gap * 0.25;
-      return obstacles.any(
-        (o) => h
-            ? c1 > o.top && c0 < o.bottom && lo < o.right && hi > o.left
-            : c1 > o.left && c0 < o.right && lo < o.bottom && hi > o.top,
-      );
+      double cost = 0;
+      for (final o in obstacles) {
+        final double pLo = h ? o.top : o.left, pHi = h ? o.bottom : o.right;
+        final double aLo = h ? o.left : o.top, aHi = h ? o.right : o.bottom;
+        if (!(c1 > pLo && c0 < pHi)) continue;
+        final double run = math.min(hi, aHi) - math.max(lo, aLo);
+        if (run <= 0) continue;
+        cost += run;
+        final double mid = (pLo + pHi) / 2;
+        final double nameHalf = math.min((pHi - pLo) / 2, 60);
+        if ((c - mid).abs() < nameHalf) cost += 1000;
+      }
+      return cost;
     }
 
     bool inRange(double c) =>
         c >= gap * 0.9 && (limit <= 0 || c <= limit - gap * 0.3);
     double? pos;
     double best = double.infinity;
-    for (int k = 0; k < 60; k++) {
-      for (final c in [
-        up - gap * k,
-        down + gap * k,
-        center - gap * k,
-        center + gap * k,
-      ]) {
+    // 후보: 바깥 자리들 + (다 막힌 도면용) 판 전체를 반 칸씩
+    void tryAll(Iterable<double> cands) {
+      for (final c in cands) {
         if (!inRange(c) || clash(c)) continue;
-        final double score = (c - center).abs() + (crosses(c) ? 1e6 : 0);
+        final double cost = crossCost(c);
+        final double score =
+            (c - center).abs() + (cost > 0 ? 1e6 + cost * 50 : 0);
         if (score < best) {
           best = score;
           pos = c;
         }
       }
     }
-    pos ??= up; // 둘 다 막히면(아주 좁은 도면) 위쪽 첫 자리
-    placed.add((h, pos, lo, hi));
-    final Offset a = h ? Offset(e.p1.dx, pos) : Offset(pos, e.p1.dy);
-    final Offset b = h ? Offset(e.p2.dx, pos) : Offset(pos, e.p2.dy);
+
+    tryAll([
+      for (int k = 0; k < 60; k++) ...[
+        up - gap * k,
+        down + gap * k,
+        center - gap * k,
+        center + gap * k,
+      ],
+    ]);
+    // 다 막힌 도면(덕트가 판을 가로지름 등): 판 전체를 반 칸씩 훑어 덜 가리는 자리
+    if (best >= 1e6 && limit > 0) {
+      tryAll([for (double c = gap; c < limit; c += gap / 2) c]);
+    }
+    final double at = pos ?? up; // 둘 다 막히면(아주 좁은 도면) 위쪽 첫 자리
+    placed.add((h, at, lo, hi));
+    final Offset a = h ? Offset(e.p1.dx, at) : Offset(at, e.p1.dy);
+    final Offset b = h ? Offset(e.p2.dx, at) : Offset(at, e.p2.dy);
     out[d.id] = DimensionLane(a, b, e.distance, 1, e.p1, e.p2);
   }
   return out;

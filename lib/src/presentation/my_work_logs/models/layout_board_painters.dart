@@ -499,6 +499,7 @@ void drawCadStyleDimension(
   Color color, {
   double scale = 1,
   List<Rect> obstacles = const [],
+  List<Rect>? takenLabels,
 }) {
   final ext = Paint()
     ..color = const Color(0xFF8A949E)
@@ -564,9 +565,33 @@ void drawCadStyleDimension(
   )..layout();
   final bool vertical = u.dx.abs() < 0.01;
   final Offset mid = (l.p1 + l.p2) / 2;
-  // 숫자가 선보다 길면 끝 너머에
+  // 숫자가 선보다 길면 끝 너머에. 다른 치수 숫자와 겹치면 선을 따라 비켜 놓는다.
   final bool fits = tp.width + 6 * scale <= len;
-  final Offset at = fits ? mid : l.p2 + u * (tp.width / 2 + a * 2);
+  Rect labelRect(Offset at) => vertical
+      ? Rect.fromLTRB(
+          at.dx - tp.height - 2 * scale,
+          at.dy - tp.width / 2 - 2 * scale,
+          at.dx - 1 * scale,
+          at.dy + tp.width / 2 + 2 * scale,
+        )
+      : Rect.fromLTRB(
+          at.dx - tp.width / 2 - 2 * scale,
+          at.dy - tp.height - 2 * scale,
+          at.dx + tp.width / 2 + 2 * scale,
+          at.dy - 1 * scale,
+        );
+  Offset at = fits ? mid : l.p2 + u * (tp.width / 2 + a * 2);
+  if (fits && takenLabels != null) {
+    final double room = (len - tp.width) / 2 - 3 * scale;
+    for (final f in [0.0, -0.4, 0.4, -0.7, 0.7, -1.0, 1.0]) {
+      final Offset c = mid + u * (room * f);
+      if (!takenLabels.any((r) => r.overlaps(labelRect(c)))) {
+        at = c;
+        break;
+      }
+    }
+  }
+  takenLabels?.add(labelRect(at));
   canvas.save();
   canvas.translate(at.dx, at.dy);
   if (vertical) canvas.rotate(-math.pi / 2);
@@ -743,6 +768,7 @@ class DimensionPainter extends CustomPainter {
     final List<Rect> cadObstacles = style == 'cad'
         ? dimObstacles(items)
         : const [];
+    final cadLabels = <Rect>[];
     final lanes = style == 'cad'
         ? layoutCadDimensionLanes(
             dimensions,
@@ -830,6 +856,7 @@ class DimensionPainter extends CustomPainter {
           dColor,
           scale: markScale,
           obstacles: cadObstacles,
+          takenLabels: cadLabels,
         );
       } else {
         drawCadDimensionLine(
