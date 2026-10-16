@@ -69,11 +69,20 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
     const double badgeTolerance = 16.0;
     PlacedDimension? closest;
     double closestDist = double.infinity;
-    // 10-16: 겹 치수는 띄워 그린 자리로 찾는다.
-    final lanes = layoutDimensionLanes(
-      _dimensions,
-      gap: DimensionPainter.laneGap(_markScale),
-    );
+    // 10-16: 겹 치수는 띄워 그린 자리로 찾는다. 좌표 모양이면 찍은 치수는 안 보이니 못 고른다.
+    if (_dimStyle == 'ordinate') return null;
+    final lanes = _dimStyle == 'cad'
+        ? layoutCadDimensionLanes(
+            _dimensions,
+            gap: DimensionPainter.laneGap(_markScale),
+            panelWidth: _panelWidth,
+            panelHeight: _panelHeight,
+            obstacles: dimObstacles(_placedItems),
+          )
+        : layoutDimensionLanes(
+            _dimensions,
+            gap: DimensionPainter.laneGap(_markScale),
+          );
     for (final dim in _dimensions) {
       final l = lanes[dim.id]!;
       final endpoints = (p1: l.p1, p2: l.p2, distance: l.distance);
@@ -504,6 +513,9 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
 
   // 치수 재기 안내 한 줄(좁은 화면 아래 칸과 넓은 화면 오른쪽 칸이 같이 쓴다).
   String _dimensionHint() {
+    if (_dimStyle == 'ordinate') {
+      return "치수 모양이 '좌표'라 찍은 치수는 숨겨져 있습니다. 도면 설정에서 앱식·캐드식으로 바꾸면 보입니다.";
+    }
     if (_dimensionStartPoint != null && _dimensionBaselineMode) {
       return "기준점: 다음 지점마다 기준점에서 측정한 치수가 하나씩 생깁니다. '첫 지점 취소'로 기준을 풉니다.";
     }

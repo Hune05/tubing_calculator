@@ -573,6 +573,8 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                   panelHeight: _panelHeight,
                                   version: _dimensionsVersion,
                                   markScale: _markScale,
+                                  style: _dimStyle,
+                                  items: _placedItems,
                                   // 10-16: 첫 지점으로 찍은 부품, 아니면 고른 부품의 치수만 진하게
                                   focusId: _pdfCapture
                                       ? null

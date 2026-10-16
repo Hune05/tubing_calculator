@@ -13,7 +13,26 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
       if (v != null && _gridChoices.contains(v) && mounted) {
         setState(() => _gridSize = v);
       }
+      final st = (await SharedPreferences.getInstance()).getString(
+        _dimStylePrefsKey,
+      );
+      if (st != null && kDimStyles.contains(st) && mounted) {
+        setState(() => _dimStyle = st);
+      }
     } catch (_) {}
+  }
+
+  /// 치수 모양 돌려 고르기(10-16): 앱식 → 캐드식 → 좌표.
+  void _cycleDimStyle() {
+    final i = kDimStyles.indexOf(_dimStyle);
+    final next = kDimStyles[(i + 1) % kDimStyles.length];
+    setState(() {
+      _dimStyle = next;
+      _dimensionsVersion++;
+    });
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(_dimStylePrefsKey, next))
+        .catchError((_) => false);
   }
 
   void _cycleGrid() {
@@ -36,9 +55,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           title: const Text(
             "작업 배치도 사용법",
             style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
@@ -1046,6 +1063,17 @@ class _LayoutSettingsPageState extends State<_LayoutSettingsPage> {
                   ? "켜짐 · 끌 때 옆 부품의 왼·가운데·오른 선에 가까우면 붙습니다"
                   : "꺼짐 · 안내선만 보이고 자리는 손가락 그대로",
               onTap: () => _toggle(() => o._setSnapToGuides(!o._snapToGuides)),
+            ),
+            layoutSheetRow(
+              key: const ValueKey("dim_style"),
+              icon: Icons.straighten_rounded,
+              label: "치수 모양: ${dimStyleLabel(o._dimStyle)}",
+              caption: switch (o._dimStyle) {
+                'cad' => "부품 밖 치수선·보조선·화살표 · 누를 때마다 앱식 → 캐드식 → 좌표",
+                'ordinate' => "위·왼쪽 벽에서 부품 센터까지 · 찍은 치수는 숨김",
+                _ => "선 위 숫자 칸 · 누를 때마다 앱식 → 캐드식 → 좌표",
+              },
+              onTap: () => _toggle(o._cycleDimStyle),
             ),
           ]),
           if (skid)

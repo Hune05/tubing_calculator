@@ -118,6 +118,7 @@ Future<bool> layoutBoardHasDraft() async {
 // ---------------------------------------------------------
 // ───── 화면 State가 쓰는 상수·순수 함수(part 파일의 확장에서도 보이게 최상위에 둔다, 10-13) ─────
 const String _gridPrefsKey = 'layout_grid_mm';
+const String _dimStylePrefsKey = 'layout_dim_style_v1';
 
 const List<double> _gridChoices = [0, 1, 5, 10];
 
@@ -282,6 +283,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   bool _dimensionBaselineMode = false;
   // 10-16: 잴 방향 — null 자동(긴 쪽), 'h' 가로, 'v' 세로.
   String? _dimAxis;
+  // 10-16: 치수 모양 — 'app' 앱식 · 'cad' 캐드식 · 'ordinate' 좌표(도면 설정에서 고름, 이 기기에 기억).
+  String _dimStyle = 'app';
 
   // 🚀 [신규] 대각선 모드 - 켜두면 새로 만드는 치수가 축 정렬 없이
   // 두 중심점을 직선으로 그대로 잇는다(실제 대각선 거리+각도).

@@ -1247,7 +1247,14 @@ class DimensionLane {
   final int lane;
   final Offset origin1;
   final Offset origin2;
-  const DimensionLane(this.p1, this.p2, this.distance, this.lane, this.origin1, this.origin2);
+  const DimensionLane(
+    this.p1,
+    this.p2,
+    this.distance,
+    this.lane,
+    this.origin1,
+    this.origin2,
+  );
   bool get shifted => lane > 0;
 }
 
@@ -1294,11 +1301,135 @@ Map<String, DimensionLane> layoutDimensionLanes(
     final int maxK = lanes.length - 1;
     final double dir = base - gap * maxK >= 0 ? -1 : 1;
     for (final (d, a, b, dist, k) in placed) {
-      final Offset shift = h ? Offset(0, dir * gap * k) : Offset(dir * gap * k, 0);
+      final Offset shift = h
+          ? Offset(0, dir * gap * k)
+          : Offset(dir * gap * k, 0);
       out[d.id] = DimensionLane(a + shift, b + shift, dist, k, a, b);
     }
   });
   return out;
+}
+
+/// 치수 모양(10-16, 도면 설정에서 고른다).
+/// app: 앱식(선 위 숫자 칸) · cad: 캐드식(부품 밖 치수선·보조선·화살표) · ordinate: 좌표 치수(위·왼쪽 벽에서 부품 센터까지).
+const List<String> kDimStyles = ['app', 'cad', 'ordinate'];
+
+String dimStyleLabel(String s) => switch (s) {
+  'cad' => '캐드식',
+  'ordinate' => '좌표',
+  _ => '앱식',
+};
+
+/// 캐드식 치수선 자리(10-16). 치수선은 두 점 부품 바깥(가로는 위, 세로는 왼쪽)에 [gap] 띄워 두고,
+/// 다른 치수선과 [gap]보다 가까우면서 구간이 겹치면 한 칸씩 더 바깥으로. 도면 밖으로 나가면
+/// 반대쪽(아래·오른쪽)으로. [obstacles](부품 테두리)를 가로지르지 않는 가까운 자리를 고른다. 대각선은 그대로. [origin1]·[origin2]는 보조선이 시작하는 원래 점.
+Map<String, DimensionLane> layoutCadDimensionLanes(
+  List<PlacedDimension> dims, {
+  required double gap,
+  double panelWidth = 0,
+  double panelHeight = 0,
+  List<Rect> obstacles = const [],
+}) {
+  final out = <String, DimensionLane>{};
+  final placed = <(bool, double, double, double)>[]; // (가로?, 선 자리, 구간 시작, 끝)
+  final items =
+      <(PlacedDimension, ({Offset p1, Offset p2, double distance}), bool)>[];
+  for (final d in dims) {
+    final e = computeDimensionEndpoints(d);
+    final bool h = (e.p1.dy - e.p2.dy).abs() < 0.01;
+    final bool v = (e.p1.dx - e.p2.dx).abs() < 0.01;
+    if (d.isDiagonal || (!h && !v) || e.distance < 0.01) {
+      out[d.id] = DimensionLane(e.p1, e.p2, e.distance, 0, e.p1, e.p2);
+      continue;
+    }
+    items.add((d, e, h));
+  }
+  items.sort((a, b) => a.$2.distance.compareTo(b.$2.distance));
+  for (final (d, e, h) in items) {
+    final Rect r1 = d.p1.boundingBox, r2 = d.p2.boundingBox;
+    final double lo = h
+        ? math.min(e.p1.dx, e.p2.dx)
+        : math.min(e.p1.dy, e.p2.dy);
+    final double hi = h
+        ? math.max(e.p1.dx, e.p2.dx)
+        : math.max(e.p1.dy, e.p2.dy);
+    bool clash(double pos) => placed.any(
+      (p) =>
+          p.$1 == h &&
+          (p.$2 - pos).abs() < gap * 0.9 &&
+          lo < p.$4 - 0.01 &&
+          hi > p.$3 + 0.01,
+    );
+    final double limit = h ? panelHeight : panelWidth;
+    // 자리 후보: 두 부품 위(왼쪽) 바깥, 아래(오른쪽) 바깥, 원래 줄 둘레. 숫자가 선 위에 얹히니
+    // 위 끝은 한 칸쯤 남긴다. 다른 치수선과 겹치지 않고, 그 구간에서 부품을 가로지르지 않는
+    // 자리 중 원래 줄에서 가장 가까운 곳. 다 막히면 부품은 가로질러도 가장 가까운 곳.
+    final double center = h ? e.p1.dy : e.p1.dx;
+    final double up =
+        (h ? math.min(r1.top, r2.top) : math.min(r1.left, r2.left)) - gap;
+    final double down =
+        (h ? math.max(r1.bottom, r2.bottom) : math.max(r1.right, r2.right)) +
+        gap;
+    // 선과 그 위(세로는 왼쪽)에 얹히는 숫자 자리까지 부품에 닿는지
+    bool crosses(double c) {
+      final double c0 = c - gap * 0.8, c1 = c + gap * 0.25;
+      return obstacles.any(
+        (o) => h
+            ? c1 > o.top && c0 < o.bottom && lo < o.right && hi > o.left
+            : c1 > o.left && c0 < o.right && lo < o.bottom && hi > o.top,
+      );
+    }
+
+    bool inRange(double c) =>
+        c >= gap * 0.9 && (limit <= 0 || c <= limit - gap * 0.3);
+    double? pos;
+    double best = double.infinity;
+    for (int k = 0; k < 60; k++) {
+      for (final c in [
+        up - gap * k,
+        down + gap * k,
+        center - gap * k,
+        center + gap * k,
+      ]) {
+        if (!inRange(c) || clash(c)) continue;
+        final double score = (c - center).abs() + (crosses(c) ? 1e6 : 0);
+        if (score < best) {
+          best = score;
+          pos = c;
+        }
+      }
+    }
+    pos ??= up; // 둘 다 막히면(아주 좁은 도면) 위쪽 첫 자리
+    placed.add((h, pos, lo, hi));
+    final Offset a = h ? Offset(e.p1.dx, pos) : Offset(pos, e.p1.dy);
+    final Offset b = h ? Offset(e.p2.dx, pos) : Offset(pos, e.p2.dy);
+    out[d.id] = DimensionLane(a, b, e.distance, 1, e.p1, e.p2);
+  }
+  return out;
+}
+
+/// 캐드식 치수선이 피해 갈 부품 테두리(메모 글자는 뺀다).
+List<Rect> dimObstacles(List<PlacedItem> items) => [
+  for (final it in items)
+    if (it.shape != InstrumentShape.note && it.id != 'preview') it.boundingBox,
+];
+
+/// 좌표 치수(10-16): 부품마다 기준점(센터)의 위·왼쪽 벽에서 거리. 메모 글자는 뺀다.
+/// 값이 같은 부품(같은 줄·같은 칸)은 한 번만. (값, 그 값을 가진 부품 기준점들)
+({List<(double, List<Offset>)> xs, List<(double, List<Offset>)> ys})
+ordinateValues(List<PlacedItem> items) {
+  final xs = <double, List<Offset>>{}, ys = <double, List<Offset>>{};
+  for (final it in items) {
+    if (it.shape == InstrumentShape.note || it.id == 'preview') continue;
+    final c = it.position + itemRefCenterOffset(it);
+    final double x = (c.dx * 10).round() / 10, y = (c.dy * 10).round() / 10;
+    (xs[x] ??= []).add(c);
+    (ys[y] ??= []).add(c);
+  }
+  List<(double, List<Offset>)> sorted(Map<double, List<Offset>> m) =>
+      (m.entries.map((e) => (e.key, e.value)).toList()
+        ..sort((a, b) => a.$1.compareTo(b.$1)));
+  return (xs: sorted(xs), ys: sorted(ys));
 }
 
 // ---------------------------------------------------------

@@ -243,7 +243,8 @@ class GridPainter extends CustomPainter {
 }
 
 /// 치수 숫자 글. 잘라 버리면 부동소수 오차로 300이 299로 보여 반올림한다(10-08).
-String cadDimensionLabel(String prefix, double distance) => "$prefix ${distance.round()} mm";
+String cadDimensionLabel(String prefix, double distance) =>
+    "$prefix ${distance.round()} mm";
 
 /// 치수 숫자 칸이 선 옆 가운데(제자리)에 들어가는지. [drawCadDimensionLine]과 같은 셈.
 bool cadLabelFitsOnLine(
@@ -437,6 +438,173 @@ Rect? drawCadDimensionLine(
   return labelBox;
 }
 
+/// 캐드식 치수 하나(10-16): 원래 점에서 치수선까지 보조선(조금 띄우고 조금 넘게), 치수선 양끝 화살표,
+/// 숫자는 상자 없이 선 위(세로 선은 세워서 왼쪽)에. 선이 짧으면 화살표는 바깥에서 안쪽으로.
+void drawCadStyleDimension(
+  Canvas canvas,
+  DimensionLane l,
+  String text,
+  Color color, {
+  double scale = 1,
+}) {
+  final ext = Paint()
+    ..color = const Color(0xFF8A949E)
+    ..strokeWidth = 0.8 * scale;
+  for (final (o, p) in [(l.origin1, l.p1), (l.origin2, l.p2)]) {
+    final Offset dv = p - o;
+    final double len = dv.distance;
+    if (len < 0.5) continue;
+    final Offset u = dv / len;
+    canvas.drawLine(o + u * (2 * scale), p + u * (3 * scale), ext);
+  }
+  final line = Paint()
+    ..color = color
+    ..strokeWidth = 1.0 * scale;
+  final Offset d = l.p2 - l.p1;
+  final double len = d.distance;
+  if (len < 0.5) return;
+  final Offset u = d / len;
+  final Offset n = Offset(-u.dy, u.dx);
+  final double a = 6 * scale, w = 2.2 * scale;
+  final bool inside = len >= a * 2.6;
+  canvas.drawLine(l.p1, l.p2, line);
+  void arrow(Offset tip, Offset dir) {
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo((tip - dir * a + n * w).dx, (tip - dir * a + n * w).dy)
+      ..lineTo((tip - dir * a - n * w).dx, (tip - dir * a - n * w).dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  if (inside) {
+    arrow(l.p1, -u);
+    arrow(l.p2, u);
+  } else {
+    // 짧은 선: 바깥에서 안쪽으로 화살표, 선을 조금 늘려 그린다.
+    canvas.drawLine(l.p1 - u * (a * 1.6), l.p1, line);
+    canvas.drawLine(l.p2, l.p2 + u * (a * 1.6), line);
+    arrow(l.p1, u);
+    arrow(l.p2, -u);
+  }
+  final tp = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color,
+        fontSize: 11 * scale,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final bool vertical = u.dx.abs() < 0.01;
+  final Offset mid = (l.p1 + l.p2) / 2;
+  // 숫자가 선보다 길면 끝 너머에
+  final bool fits = tp.width + 6 * scale <= len;
+  final Offset at = fits ? mid : l.p2 + u * (tp.width / 2 + a * 2);
+  canvas.save();
+  canvas.translate(at.dx, at.dy);
+  if (vertical) canvas.rotate(-math.pi / 2);
+  // 선 위(세로는 세운 뒤 위 = 화면 왼쪽)에 얹는다. 보조선이 지나가도 읽히게 옅은 흰 바탕.
+  final Rect r = Rect.fromLTWH(
+    -tp.width / 2 - 2 * scale,
+    -tp.height - 2 * scale,
+    tp.width + 4 * scale,
+    tp.height + 1 * scale,
+  );
+  canvas.drawRect(r, Paint()..color = const Color(0xD9FFFFFF));
+  tp.paint(canvas, Offset(-tp.width / 2, -tp.height - 1.5 * scale));
+  canvas.restore();
+}
+
+/// 좌표 치수(10-16): 위·왼쪽 벽을 0으로, 부품 센터까지 거리. 세로 값은 왼쪽 벽 안쪽에, 가로 값은 위 벽 안쪽에
+/// 세워서 적고, 부품 센터까지 옅은 보조선. 값끼리 붙으면 비켜 적고 꺾은 보조선으로 잇는다.
+void drawOrdinateDimensions(
+  Canvas canvas,
+  List<PlacedItem> items, {
+  required double panelWidth,
+  required double panelHeight,
+  double scale = 1,
+  Color color = const Color(0xFF2F3A40),
+}) {
+  final v = ordinateValues(items);
+  final lead = Paint()
+    ..color = const Color(0x80697480)
+    ..strokeWidth = 0.8 * scale;
+  TextPainter label(String t) => TextPainter(
+    text: TextSpan(
+      text: t,
+      style: TextStyle(
+        color: color,
+        fontSize: 10.5 * scale,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final bg = Paint()..color = const Color(0xE6FFFFFF);
+  // 0 표시(위·왼쪽 구석)
+  final zero = label('0');
+  canvas.drawRect(
+    Rect.fromLTWH(1 * scale, 1 * scale, zero.width + 4 * scale, zero.height),
+    bg,
+  );
+  zero.paint(canvas, Offset(3 * scale, 1 * scale));
+
+  // 세로 값(왼쪽 벽 쪽): 위에서 아래로, 붙으면 아래로 비킨다.
+  double lastBottom = zero.height + 3 * scale;
+  for (final (y, pts) in v.ys) {
+    final tp = label('${y.round()}');
+    double top = y - tp.height / 2;
+    if (top < lastBottom + 1 * scale) top = lastBottom + 1 * scale;
+    lastBottom = top + tp.height;
+    final double labelY = top + tp.height / 2;
+    final double right = 3 * scale + tp.width + 3 * scale;
+    final double tx = pts.map((p) => p.dx).reduce(math.min);
+    // 보조선: 값 칸 → (꺾임) → 가장 왼쪽 부품 센터
+    canvas.drawLine(Offset(right, labelY), Offset(right + 4 * scale, y), lead);
+    canvas.drawLine(Offset(right + 4 * scale, y), Offset(tx, y), lead);
+    canvas.drawRect(
+      Rect.fromLTWH(1 * scale, top, tp.width + 4 * scale, tp.height),
+      bg,
+    );
+    tp.paint(canvas, Offset(3 * scale, top));
+  }
+  // 가로 값(위 벽 쪽): 세워서, 왼쪽에서 오른쪽으로.
+  double lastRight = zero.width + 6 * scale;
+  for (final (x, pts) in v.xs) {
+    final tp = label('${x.round()}');
+    // 세운 글자의 화면 폭 = 글 높이
+    double left = x - tp.height / 2;
+    if (left < lastRight + 1 * scale) left = lastRight + 1 * scale;
+    lastRight = left + tp.height;
+    final double labelX = left + tp.height / 2;
+    final double bottom = 3 * scale + tp.width + 3 * scale;
+    final double ty = pts.map((p) => p.dy).reduce(math.min);
+    canvas.drawLine(
+      Offset(labelX, bottom),
+      Offset(x, bottom + 4 * scale),
+      lead,
+    );
+    canvas.drawLine(Offset(x, bottom + 4 * scale), Offset(x, ty), lead);
+    canvas.save();
+    canvas.translate(labelX, 3 * scale + tp.width / 2);
+    canvas.rotate(-math.pi / 2);
+    canvas.drawRect(
+      Rect.fromLTWH(
+        -tp.width / 2 - 2 * scale,
+        -tp.height / 2,
+        tp.width + 4 * scale,
+        tp.height,
+      ),
+      bg,
+    );
+    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    canvas.restore();
+  }
+}
+
 // 🚀 치수선 그리기. panelWidth/panelHeight 는 모바일 화면만 넘기며 다시 그릴지 판단할 때만 쓴다.
 class DimensionPainter extends CustomPainter {
   final List<PlacedDimension> dimensions;
@@ -455,6 +623,10 @@ class DimensionPainter extends CustomPainter {
   /// 지금 보는 부품(10-16). 주면 그 부품에서 나간 치수만 진하게, 나머지는 옅게.
   final String? focusId;
 
+  /// 치수 모양(10-16): app·cad·ordinate([kDimStyles]). 좌표는 [items]로 그린다(찍은 치수는 숨김).
+  final String style;
+  final List<PlacedItem> items;
+
   DimensionPainter({
     required this.dimensions,
     this.activePoint,
@@ -463,6 +635,8 @@ class DimensionPainter extends CustomPainter {
     this.version = 0,
     this.markScale = 1,
     this.focusId,
+    this.style = 'app',
+    this.items = const [],
   });
 
   /// 겹 치수 한 칸 간격(도면 mm). 숫자 글씨 높이보다 넉넉하게.
@@ -470,25 +644,49 @@ class DimensionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 10-16: 같은 줄 위에서 겹치는 치수는 짧은 것부터 한 칸씩 바깥으로 띄워 그린다.
-    final lanes = layoutDimensionLanes(dimensions, gap: laneGap(markScale));
-    final bool focusHasDims = focusId != null &&
+    if (style == 'ordinate') {
+      drawOrdinateDimensions(
+        canvas,
+        items,
+        panelWidth: panelWidth,
+        panelHeight: panelHeight,
+        scale: markScale,
+      );
+      _paintActivePoint(canvas);
+      return;
+    }
+    // 10-16: 같은 줄 위에서 겹치는 치수는 짧은 것부터 한 칸씩 바깥으로 띄워 그린다(캐드식은 부품 밖으로).
+    final lanes = style == 'cad'
+        ? layoutCadDimensionLanes(
+            dimensions,
+            gap: laneGap(markScale),
+            panelWidth: panelWidth,
+            panelHeight: panelHeight,
+            obstacles: dimObstacles(items),
+          )
+        : layoutDimensionLanes(dimensions, gap: laneGap(markScale));
+    final bool focusHasDims =
+        focusId != null &&
         dimensions.any((d) => d.p1.id == focusId || d.p2.id == focusId);
     for (int i = 0; i < dimensions.length; i++) {
       final dim = dimensions[i];
       final DimensionLane lane = lanes[dim.id]!;
       final endpoints = (p1: lane.p1, p2: lane.p2, distance: lane.distance);
       // 지금 보는 부품과 상관없는 치수는 옅게(그 부품에 치수가 있을 때만).
-      final bool faded = focusHasDims && dim.p1.id != focusId && dim.p2.id != focusId;
+      final bool faded =
+          focusHasDims && dim.p1.id != focusId && dim.p2.id != focusId;
       if (faded) {
         canvas.saveLayer(null, Paint()..color = const Color(0x2E000000));
       }
       // 띄운 치수: 원래 점에서 띄운 선까지 옅은 점선(보조선).
-      if (lane.shifted) {
+      if (lane.shifted && style != 'cad') {
         final ext = Paint()
           ..color = const Color(0xFF9AA3AC)
           ..strokeWidth = 0.9 * markScale;
-        for (final (a, b) in [(lane.origin1, lane.p1), (lane.origin2, lane.p2)]) {
+        for (final (a, b) in [
+          (lane.origin1, lane.p1),
+          (lane.origin2, lane.p2),
+        ]) {
           final Offset dv = b - a;
           final double len = dv.distance;
           if (len < 0.5) continue;
@@ -537,33 +735,43 @@ class DimensionPainter extends CustomPainter {
         labelPrefix = "⚠ 최소 ${dim.minGapMm!.toInt()} 미달 ";
       }
 
-      drawCadDimensionLine(
-        canvas,
-        endpoints.p1,
-        endpoints.p2,
-        endpoints.distance,
-        dColor,
-        labelPrefix,
-        strokeWidth: dim.isSafetyCritical ? 2.4 : 1.3,
-        bounds: panelWidth > 0 && panelHeight > 0
-            ? Offset.zero & Size(panelWidth, panelHeight)
-            : null,
-        scale: markScale,
-        onLine: true,
-        span: TextSpan(
-          children: [
-            TextSpan(
-              text: "${i + 1}  ",
-              style: TextStyle(
-                fontSize: 8 * markScale,
-                fontWeight: FontWeight.w700,
-                color: dColor.withValues(alpha: 0.6),
+      if (style == 'cad' && !dim.isDiagonal) {
+        drawCadStyleDimension(
+          canvas,
+          lane,
+          "$labelPrefix${endpoints.distance.round()}",
+          dColor,
+          scale: markScale,
+        );
+      } else {
+        drawCadDimensionLine(
+          canvas,
+          endpoints.p1,
+          endpoints.p2,
+          endpoints.distance,
+          dColor,
+          labelPrefix,
+          strokeWidth: dim.isSafetyCritical ? 2.4 : 1.3,
+          bounds: panelWidth > 0 && panelHeight > 0
+              ? Offset.zero & Size(panelWidth, panelHeight)
+              : null,
+          scale: markScale,
+          onLine: true,
+          span: TextSpan(
+            children: [
+              TextSpan(
+                text: "${i + 1}  ",
+                style: TextStyle(
+                  fontSize: 8 * markScale,
+                  fontWeight: FontWeight.w700,
+                  color: dColor.withValues(alpha: 0.6),
+                ),
               ),
-            ),
-            TextSpan(text: "$labelPrefix${endpoints.distance.round()}"),
-          ],
-        ),
-      );
+              TextSpan(text: "$labelPrefix${endpoints.distance.round()}"),
+            ],
+          ),
+        );
+      }
 
       // 메모는 치수 글자와 겹치지 않게 선의 반대쪽에 그린다
       // (치수 글자는 drawCadDimensionLine이 선 한쪽으로 15 띄워 그린다).
@@ -591,7 +799,14 @@ class DimensionPainter extends CustomPainter {
           text: noteSpan,
           textDirection: TextDirection.ltr,
         )..layout();
-        final Offset noteCenter = mid + away * 15 * markScale;
+        // 캐드식은 숫자가 늘 선 위(세로는 왼쪽)에 있으니 메모는 아래(세로는 오른쪽)에.
+        final bool cadSide = style == 'cad' && !dim.isDiagonal;
+        final Offset noteCenter = cadSide
+            ? mid +
+                  (ddx.abs() >= ddy.abs()
+                      ? Offset(0, 9 * markScale)
+                      : Offset(9 * markScale + notePainter.width / 2, 0))
+            : mid + away * 15 * markScale;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromCenter(
@@ -619,6 +834,15 @@ class DimensionPainter extends CustomPainter {
     // 없었다. 그래서 다음 터치가 바로 두 번째 지점으로 이어져 치수가
     // 생기는 게 예상치 못하게 느껴졌다. 이제 첫 지점 종류와 상관없이
     // 항상 표시해서 측정이 진행 중임을 분명히 보여준다.
+    _paintActivePoint(canvas);
+  }
+
+  // 🚀 [최적화] 예전엔 무조건 true라 모듈을 드래그해서 setState가 호출될
+  // 때마다(프레임마다) 치수선과 무관한데도 이 레이어 전체가 매번 다시
+  // 그려졌음(버벅임의 실제 원인). dimensions는 같은 List를 in-place로
+  // add/remove하므로 참조 비교 대신 길이로, 나머지는 값이 바뀔 때 항상
+  // 재할당되므로 값 비교로 실제 변경 여부를 판단한다.
+  void _paintActivePoint(Canvas canvas) {
     if (activePoint != null) {
       canvas.drawCircle(
         activePoint!.center,
@@ -635,11 +859,6 @@ class DimensionPainter extends CustomPainter {
     }
   }
 
-  // 🚀 [최적화] 예전엔 무조건 true라 모듈을 드래그해서 setState가 호출될
-  // 때마다(프레임마다) 치수선과 무관한데도 이 레이어 전체가 매번 다시
-  // 그려졌음(버벅임의 실제 원인). dimensions는 같은 List를 in-place로
-  // add/remove하므로 참조 비교 대신 길이로, 나머지는 값이 바뀔 때 항상
-  // 재할당되므로 값 비교로 실제 변경 여부를 판단한다.
   @override
   bool shouldRepaint(covariant DimensionPainter oldDelegate) {
     return oldDelegate.dimensions.length != dimensions.length ||
@@ -648,7 +867,9 @@ class DimensionPainter extends CustomPainter {
         oldDelegate.panelHeight != panelHeight ||
         oldDelegate.markScale != markScale ||
         oldDelegate.version != version ||
-        oldDelegate.focusId != focusId;
+        oldDelegate.focusId != focusId ||
+        oldDelegate.style != style ||
+        oldDelegate.items.length != items.length;
   }
 }
 
