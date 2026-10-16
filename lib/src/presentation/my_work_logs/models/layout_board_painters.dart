@@ -438,6 +438,58 @@ Rect? drawCadDimensionLine(
   return labelBox;
 }
 
+/// 부품을 피해 그리는 선(10-16): [a]→[b] 중 [rects](각각 [pad]만큼 키움) 안에 드는 구간은 끊고 나머지만.
+/// 캐드처럼 보조선이 부품 테두리 앞에서 멈추고 다른 부품 위를 지나가지 않게 한다.
+void drawLineAround(
+  Canvas canvas,
+  Offset a,
+  Offset b,
+  Paint paint,
+  List<Rect> rects, {
+  double pad = 0,
+}) {
+  final Offset d = b - a;
+  if (d.distance < 0.5) return;
+  final cuts = <(double, double)>[];
+  for (final r0 in rects) {
+    final r = r0.inflate(pad);
+    double t0 = 0, t1 = 1;
+    bool hit = true;
+    for (final (p, lo, hi) in [
+      (d.dx, r.left - a.dx, r.right - a.dx),
+      (d.dy, r.top - a.dy, r.bottom - a.dy),
+    ]) {
+      if (p.abs() < 1e-9) {
+        if (lo > 0 || hi < 0) hit = false;
+      } else {
+        double e0 = lo / p, e1 = hi / p;
+        if (e0 > e1) (e0, e1) = (e1, e0);
+        t0 = math.max(t0, e0);
+        t1 = math.min(t1, e1);
+      }
+    }
+    if (hit && t0 < t1) cuts.add((t0, t1));
+  }
+  cuts.sort((x, y) => x.$1.compareTo(y.$1));
+  double t = 0;
+  final double minT = 0.5 / d.distance;
+  for (final (c0, c1) in cuts) {
+    if (c0 - t > minT) canvas.drawLine(a + d * t, a + d * c0, paint);
+    t = math.max(t, c1);
+  }
+  if (1 - t > minT) canvas.drawLine(a + d * t, b, paint);
+}
+
+/// 센터 표시(10-16): 부품 가운데 작은 십자. 치수가 센터를 잰다는 것만 보이고 선은 부품을 지나지 않는다.
+void drawCenterMark(Canvas canvas, Offset c, double scale) {
+  final p = Paint()
+    ..color = const Color(0xFF8A949E)
+    ..strokeWidth = 0.8 * scale;
+  final double r = 4 * scale;
+  canvas.drawLine(c - Offset(r, 0), c + Offset(r, 0), p);
+  canvas.drawLine(c - Offset(0, r), c + Offset(0, r), p);
+}
+
 /// 캐드식 치수 하나(10-16): 원래 점에서 치수선까지 보조선(조금 띄우고 조금 넘게), 치수선 양끝 화살표,
 /// 숫자는 상자 없이 선 위(세로 선은 세워서 왼쪽)에. 선이 짧으면 화살표는 바깥에서 안쪽으로.
 void drawCadStyleDimension(
@@ -446,6 +498,7 @@ void drawCadStyleDimension(
   String text,
   Color color, {
   double scale = 1,
+  List<Rect> obstacles = const [],
 }) {
   final ext = Paint()
     ..color = const Color(0xFF8A949E)
@@ -455,7 +508,18 @@ void drawCadStyleDimension(
     final double len = dv.distance;
     if (len < 0.5) continue;
     final Offset u = dv / len;
-    canvas.drawLine(o + u * (2 * scale), p + u * (3 * scale), ext);
+    // 보조선은 부품 테두리 조금 앞에서 시작하고, 지나는 다른 부품 위에서는 끊는다.
+    drawLineAround(
+      canvas,
+      o + u * (2 * scale),
+      p + u * (3 * scale),
+      ext,
+      obstacles,
+      pad: 2 * scale,
+    );
+    if (obstacles.any((r) => r.width > 0 && r.deflate(0.5).contains(o))) {
+      drawCenterMark(canvas, o, scale);
+    }
   }
   final line = Paint()
     ..color = color
@@ -529,6 +593,12 @@ void drawOrdinateDimensions(
   Color color = const Color(0xFF2F3A40),
 }) {
   final v = ordinateValues(items);
+  final obstacles = dimObstacles(items);
+  for (final (_, pts) in v.xs) {
+    for (final c in pts) {
+      drawCenterMark(canvas, c, scale);
+    }
+  }
   final lead = Paint()
     ..color = const Color(0x80697480)
     ..strokeWidth = 0.8 * scale;
@@ -564,7 +634,14 @@ void drawOrdinateDimensions(
     final double tx = pts.map((p) => p.dx).reduce(math.min);
     // 보조선: 값 칸 → (꺾임) → 가장 왼쪽 부품 센터
     canvas.drawLine(Offset(right, labelY), Offset(right + 4 * scale, y), lead);
-    canvas.drawLine(Offset(right + 4 * scale, y), Offset(tx, y), lead);
+    drawLineAround(
+      canvas,
+      Offset(right + 4 * scale, y),
+      Offset(tx, y),
+      lead,
+      obstacles,
+      pad: 2 * scale,
+    );
     canvas.drawRect(
       Rect.fromLTWH(1 * scale, top, tp.width + 4 * scale, tp.height),
       bg,
@@ -587,7 +664,14 @@ void drawOrdinateDimensions(
       Offset(x, bottom + 4 * scale),
       lead,
     );
-    canvas.drawLine(Offset(x, bottom + 4 * scale), Offset(x, ty), lead);
+    drawLineAround(
+      canvas,
+      Offset(x, bottom + 4 * scale),
+      Offset(x, ty),
+      lead,
+      obstacles,
+      pad: 2 * scale,
+    );
     canvas.save();
     canvas.translate(labelX, 3 * scale + tp.width / 2);
     canvas.rotate(-math.pi / 2);
@@ -656,13 +740,16 @@ class DimensionPainter extends CustomPainter {
       return;
     }
     // 10-16: 같은 줄 위에서 겹치는 치수는 짧은 것부터 한 칸씩 바깥으로 띄워 그린다(캐드식은 부품 밖으로).
+    final List<Rect> cadObstacles = style == 'cad'
+        ? dimObstacles(items)
+        : const [];
     final lanes = style == 'cad'
         ? layoutCadDimensionLanes(
             dimensions,
             gap: laneGap(markScale),
             panelWidth: panelWidth,
             panelHeight: panelHeight,
-            obstacles: dimObstacles(items),
+            obstacles: cadObstacles,
           )
         : layoutDimensionLanes(dimensions, gap: laneGap(markScale));
     final bool focusHasDims =
@@ -742,6 +829,7 @@ class DimensionPainter extends CustomPainter {
           "$labelPrefix${endpoints.distance.round()}",
           dColor,
           scale: markScale,
+          obstacles: cadObstacles,
         );
       } else {
         drawCadDimensionLine(
