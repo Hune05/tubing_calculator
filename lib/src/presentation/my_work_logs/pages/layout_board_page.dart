@@ -280,6 +280,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   // 기준점 모드 - 첫 점을 그대로 두고 다음 점마다 새 치수를 낸다(한 기준에서 여러 부품까지, 누적 치수).
   bool _dimensionBaselineMode = false;
+  // 10-16: 잴 방향 — null 자동(긴 쪽), 'h' 가로, 'v' 세로.
+  String? _dimAxis;
 
   // 🚀 [신규] 대각선 모드 - 켜두면 새로 만드는 치수가 축 정렬 없이
   // 두 중심점을 직선으로 그대로 잇는다(실제 대각선 거리+각도).

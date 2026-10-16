@@ -20,6 +20,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
             (dim) =>
                 dim.type == _currentDimType &&
                 dim.isDiagonal == _dimensionDiagonalMode &&
+                (_dimensionDiagonalMode || dim.axis == _dimAxis) &&
                 ((dim.p1.id == _dimensionStartPoint!.id &&
                         dim.p2.id == point.id) ||
                     (dim.p1.id == point.id &&
@@ -35,6 +36,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                 p2: point,
                 type: _currentDimType,
                 isDiagonal: _dimensionDiagonalMode,
+                axis: _dimensionDiagonalMode ? null : _dimAxis,
               ),
             );
             HapticFeedback.heavyImpact();
@@ -67,8 +69,14 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
     const double badgeTolerance = 16.0;
     PlacedDimension? closest;
     double closestDist = double.infinity;
+    // 10-16: 겹 치수는 띄워 그린 자리로 찾는다.
+    final lanes = layoutDimensionLanes(
+      _dimensions,
+      gap: DimensionPainter.laneGap(_markScale),
+    );
     for (final dim in _dimensions) {
-      final endpoints = computeDimensionEndpoints(dim);
+      final l = lanes[dim.id]!;
+      final endpoints = (p1: l.p1, p2: l.p2, distance: l.distance);
       final double badgeDist = (pos - endpoints.p1).distance;
       if (badgeDist <= badgeTolerance && badgeDist < closestDist) {
         closestDist = badgeDist;
@@ -165,6 +173,31 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                         ),
                       ],
                     ),
+                    if (!dim.isDiagonal) ...[
+                      const SizedBox(height: 10),
+                      // 10-16: 잰 방향 바꾸기(같은 두 점의 가로 센터 차이 ↔ 세로 센터 차이).
+                      OutlinedButton.icon(
+                        key: const Key('dim_flip_axis'),
+                        onPressed: () {
+                          final e = computeDimensionEndpoints(dim);
+                          final bool nowH = (e.p1.dy - e.p2.dy).abs() < 0.01;
+                          setModalState(() {});
+                          setState(() {
+                            dim.axis = nowH ? 'v' : 'h';
+                            _dimensionsVersion++;
+                          });
+                        },
+                        icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                        label: Text(
+                          (computeDimensionEndpoints(dim).p1.dy -
+                                          computeDimensionEndpoints(dim).p2.dy)
+                                      .abs() <
+                                  0.01
+                              ? "세로로 바꾸기 (지금 가로)"
+                              : "가로로 바꾸기 (지금 세로)",
+                        ),
+                      ),
+                    ],
                     // 10-15 통일: 칸 이름은 테두리 위, 테두리·바탕은 테마 기본
                     const SizedBox(height: 26),
                     TextField(
@@ -544,6 +577,10 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
             ),
           ],
         ),
+        if (!_dimensionDiagonalMode) ...[
+          const SizedBox(height: 8),
+          _buildAxisPicker(),
+        ],
         const SizedBox(height: 10),
         Row(
           children: [
@@ -575,6 +612,70 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                 ),
               ),
           ],
+        ),
+      ],
+    );
+  }
+
+  /// 잴 방향 고르기(10-16): 자동(긴 쪽) / 가로 / 세로 — 붙은 네모 줄, 고른 칸 옅은 청록 + ✓.
+  Widget _buildAxisPicker() {
+    Widget seg(String key, String label, String? v) {
+      final bool sel = _dimAxis == v;
+      return Expanded(
+        child: InkWell(
+          key: Key(key),
+          onTap: () => setState(() => _dimAxis = v),
+          child: Container(
+            height: 40,
+            alignment: Alignment.center,
+            color: sel ? pickFill() : pureWhite,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (sel) ...[pickCheck(), const SizedBox(width: 4)],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: sel ? pickInk() : tossText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        const Text(
+          "방향",
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: tossSubText,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: pickIdleLine(), width: 1.2),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(
+              children: [
+                seg('dim_axis_auto', "자동", null),
+                Container(width: 1, height: 40, color: pickIdleLine()),
+                seg('dim_axis_h', "가로", 'h'),
+                Container(width: 1, height: 40, color: pickIdleLine()),
+                seg('dim_axis_v', "세로", 'v'),
+              ],
+            ),
+          ),
         ),
       ],
     );

@@ -1103,6 +1103,10 @@ class PlacedDimension {
   // 두께/아이콘으로 다른 치수와 구분되게 한다.
   bool isSafetyCritical;
 
+  /// 잴 방향(10-16): 'h' 가로, 'v' 세로, null 자동(두 점 사이 가로·세로 중 긴 쪽 — 예전 그대로).
+  /// 자동만 있을 때는 가로로 멀리 떨어진 부품끼리 세로 센터 차이를 볼 수 없었다.
+  String? axis;
+
   PlacedDimension({
     required this.id,
     required this.p1,
@@ -1112,6 +1116,7 @@ class PlacedDimension {
     this.minGapMm,
     this.isDiagonal = false,
     this.isSafetyCritical = false,
+    this.axis,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1123,6 +1128,8 @@ class PlacedDimension {
     'minGapMm': minGapMm,
     'isDiagonal': isDiagonal,
     'isSafetyCritical': isSafetyCritical,
+    // 새 칸은 있을 때만(옛 저장본·비교 시험과 같게).
+    if (axis != null) 'axis': axis,
   };
 
   factory PlacedDimension.fromJson(Map<String, dynamic> j) => PlacedDimension(
@@ -1134,6 +1141,7 @@ class PlacedDimension {
     minGapMm: (j['minGapMm'] as num?)?.toDouble(),
     isDiagonal: j['isDiagonal'] as bool? ?? false,
     isSafetyCritical: j['isSafetyCritical'] as bool? ?? false,
+    axis: (j['axis'] == 'h' || j['axis'] == 'v') ? j['axis'] as String : null,
   );
 }
 
@@ -1201,16 +1209,18 @@ double itemLengthMm(PlacedItem it) =>
 
   final double dxCenter = (c1.dx - c2.dx).abs();
   final double dyCenter = (c1.dy - c2.dy).abs();
+  // 잴 방향: 고른 방향이 있으면 그것, 자동이면 긴 쪽(10-16).
+  final bool horizontal = dim.axis == 'h'
+      ? true
+      : (dim.axis == 'v' ? false : dxCenter > dyCenter);
 
   if (dim.type == DimensionType.center) {
     final Offset p1 = c1;
-    final Offset p2 = dxCenter > dyCenter
-        ? Offset(c2.dx, c1.dy)
-        : Offset(c1.dx, c2.dy);
+    final Offset p2 = horizontal ? Offset(c2.dx, c1.dy) : Offset(c1.dx, c2.dy);
     return (p1: p1, p2: p2, distance: (p1 - p2).distance);
   }
 
-  if (dxCenter > dyCenter) {
+  if (horizontal) {
     final bool isR1Left = r1.center.dx < r2.center.dx;
     final double x1 = isR1Left ? r1.right : r1.left;
     final double x2 = isR1Left ? r2.left : r2.right;
@@ -1223,6 +1233,64 @@ double itemLengthMm(PlacedItem it) =>
     final double x = (r1.center.dx + r2.center.dx) / 2;
     return (p1: Offset(x, y1), p2: Offset(x, y2), distance: (y1 - y2).abs());
   }
+}
+
+/// 치수선 그릴 자리(10-16 "겹 치수"). 한 부품에서 같은 방향으로 여러 치수가 나가면 예전엔 한 줄 위에
+/// 겹쳐 먼저 찍은 치수가 길게 이어진 것처럼 보였다. 같은 줄(가로는 같은 y, 세로는 같은 x) 위에서
+/// 구간이 겹치는 치수는 짧은 것부터 안쪽에 두고 [gap]씩 바깥(가로는 위, 세로는 왼쪽)으로 띄운다.
+/// 끝만 닿는 이어진 치수(체인)는 같은 줄에 그대로 둔다. [ext1]·[ext2]는 원래 점에서 띄운 선까지
+/// 잇는 보조선(띄우지 않았으면 null). 값(거리)은 바뀌지 않는다. 대각선 치수는 그대로.
+class DimensionLane {
+  final Offset p1;
+  final Offset p2;
+  final double distance;
+  final int lane;
+  final Offset origin1;
+  final Offset origin2;
+  const DimensionLane(this.p1, this.p2, this.distance, this.lane, this.origin1, this.origin2);
+  bool get shifted => lane > 0;
+}
+
+Map<String, DimensionLane> layoutDimensionLanes(
+  List<PlacedDimension> dims, {
+  required double gap,
+}) {
+  final out = <String, DimensionLane>{};
+  // (가로?, 줄 위치) → 그 줄의 치수들
+  final groups = <String, List<(PlacedDimension, Offset, Offset, double)>>{};
+  for (final d in dims) {
+    final e = computeDimensionEndpoints(d);
+    final bool h = (e.p1.dy - e.p2.dy).abs() < 0.01 && !d.isDiagonal;
+    final bool v = (e.p1.dx - e.p2.dx).abs() < 0.01 && !d.isDiagonal;
+    if (!h && !v || e.distance < 0.01) {
+      out[d.id] = DimensionLane(e.p1, e.p2, e.distance, 0, e.p1, e.p2);
+      continue;
+    }
+    final key = h ? 'h:${(e.p1.dy * 2).round()}' : 'v:${(e.p1.dx * 2).round()}';
+    (groups[key] ??= []).add((d, e.p1, e.p2, e.distance));
+  }
+  groups.forEach((key, list) {
+    final bool h = key.startsWith('h');
+    // 짧은 것부터 안쪽 줄에
+    list.sort((a, b) => a.$4.compareTo(b.$4));
+    final lanes = <List<(double, double)>>[];
+    for (final (d, a, b, dist) in list) {
+      final double lo = h ? math.min(a.dx, b.dx) : math.min(a.dy, b.dy);
+      final double hi = h ? math.max(a.dx, b.dx) : math.max(a.dy, b.dy);
+      int k = 0;
+      while (true) {
+        if (k == lanes.length) lanes.add([]);
+        // 끝만 닿는 것(체인)은 겹침이 아니다.
+        final clash = lanes[k].any((r) => lo < r.$2 - 0.01 && hi > r.$1 + 0.01);
+        if (!clash) break;
+        k++;
+      }
+      lanes[k].add((lo, hi));
+      final Offset shift = h ? Offset(0, -gap * k) : Offset(-gap * k, 0);
+      out[d.id] = DimensionLane(a + shift, b + shift, dist, k, a, b);
+    }
+  });
+  return out;
 }
 
 // ---------------------------------------------------------

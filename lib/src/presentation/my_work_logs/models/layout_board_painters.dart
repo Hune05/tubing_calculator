@@ -285,6 +285,7 @@ Rect? drawCadDimensionLine(
   List<Rect> avoid = const [],
   Rect? bounds,
   double scale = 1,
+  bool onLine = false,
 }) {
   strokeWidth *= scale;
   if (distance < 1) return null; // 사실상 붙어있으면 표시할 게 없음
@@ -356,6 +357,33 @@ Rect? drawCadDimensionLine(
     return !avoid.any(r.overlaps);
   }
 
+  // 10-16 [onLine]: 도면처럼 숫자를 선 위 가운데에 얹는다(세로 선은 글자를 세워서). 겹 치수가
+  // 한 칸씩 붙어 쌓여도 숫자 칸이 옆 줄로 넘어가지 않는다. 선이 숫자보다 짧으면 아래 예전 방식.
+  if (onLine && along + 8 * scale <= len) {
+    final bool vertical = ux.abs() < 0.01;
+    final Rect r = vertical
+        ? Rect.fromCenter(center: mid, width: box.height, height: box.width)
+        : Rect.fromCenter(center: mid, width: box.width, height: box.height);
+    final rr = RRect.fromRectAndRadius(r, Radius.circular(4 * scale));
+    canvas.drawRRect(rr, Paint()..color = const Color(0xFFFFFFFF));
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = scale,
+    );
+    canvas.save();
+    canvas.translate(mid.dx, mid.dy);
+    if (vertical) canvas.rotate(-math.pi / 2);
+    textPainter.paint(
+      canvas,
+      Offset(-textPainter.width / 2, -textPainter.height / 2),
+    );
+    canvas.restore();
+    return r;
+  }
+
   // 도면 가장자리 근처면 칸이 도면 밖으로 삐져 잘린다. 도면 안으로 당겨 넣는다.
   Offset label = keepIn(mid + Offset(px, py) * 15 * scale);
   Offset anchor = mid;
@@ -423,6 +451,9 @@ class DimensionPainter extends CustomPainter {
   /// 숫자 글씨·번호·눈금 배율([dimensionMarkScale]).
   final double markScale;
 
+  /// 지금 보는 부품(10-16). 주면 그 부품에서 나간 치수만 진하게, 나머지는 옅게.
+  final String? focusId;
+
   DimensionPainter({
     required this.dimensions,
     this.activePoint,
@@ -430,13 +461,43 @@ class DimensionPainter extends CustomPainter {
     this.panelHeight = 0,
     this.version = 0,
     this.markScale = 1,
+    this.focusId,
   });
+
+  /// 겹 치수 한 칸 간격(도면 mm). 숫자 글씨 높이보다 넉넉하게.
+  static double laneGap(double markScale) => 22 * markScale;
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 10-16: 같은 줄 위에서 겹치는 치수는 짧은 것부터 한 칸씩 바깥으로 띄워 그린다.
+    final lanes = layoutDimensionLanes(dimensions, gap: laneGap(markScale));
+    final bool focusHasDims = focusId != null &&
+        dimensions.any((d) => d.p1.id == focusId || d.p2.id == focusId);
     for (int i = 0; i < dimensions.length; i++) {
       final dim = dimensions[i];
-      final endpoints = computeDimensionEndpoints(dim);
+      final DimensionLane lane = lanes[dim.id]!;
+      final endpoints = (p1: lane.p1, p2: lane.p2, distance: lane.distance);
+      // 지금 보는 부품과 상관없는 치수는 옅게(그 부품에 치수가 있을 때만).
+      final bool faded = focusHasDims && dim.p1.id != focusId && dim.p2.id != focusId;
+      if (faded) {
+        canvas.saveLayer(null, Paint()..color = const Color(0x40000000));
+      }
+      // 띄운 치수: 원래 점에서 띄운 선까지 옅은 점선(보조선).
+      if (lane.shifted) {
+        final ext = Paint()
+          ..color = const Color(0xFF9AA3AC)
+          ..strokeWidth = 0.9 * markScale;
+        for (final (a, b) in [(lane.origin1, lane.p1), (lane.origin2, lane.p2)]) {
+          final Offset dv = b - a;
+          final double len = dv.distance;
+          if (len < 0.5) continue;
+          final Offset u = dv / len;
+          final double dash = 4 * markScale, gapLen = 3 * markScale;
+          for (double t = 0; t < len; t += dash + gapLen) {
+            canvas.drawLine(a + u * t, a + u * math.min(t + dash, len), ext);
+          }
+        }
+      }
 
       Color dColor = dim.type == DimensionType.center
           ? _centerDimColor
@@ -485,6 +546,7 @@ class DimensionPainter extends CustomPainter {
             ? Offset.zero & Size(panelWidth, panelHeight)
             : null,
         scale: markScale,
+        onLine: true,
       );
 
       // 🚀 [신규] 치수선마다 번호 배지를 달아서, 도면이 복잡해져도
@@ -557,6 +619,7 @@ class DimensionPainter extends CustomPainter {
           ),
         );
       }
+      if (faded) canvas.restore();
     }
 
     // 🚀 [개선] 예전엔 벽 기준점(WallPoint)일 때만 대기 중 표시를 그려서,
@@ -592,7 +655,8 @@ class DimensionPainter extends CustomPainter {
         oldDelegate.panelWidth != panelWidth ||
         oldDelegate.panelHeight != panelHeight ||
         oldDelegate.markScale != markScale ||
-        oldDelegate.version != version;
+        oldDelegate.version != version ||
+        oldDelegate.focusId != focusId;
   }
 }
 
