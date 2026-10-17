@@ -74,7 +74,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
     '7/8"',
     '1"',
   ];
-  final List<String> _mmSizes = ['8mm', '10mm', '12mm', '20mm', '25mm'];
+  // 10-17 밤샘 점검: 처음 설정 화면과 같게 6mm도.
+  final List<String> _mmSizes = ['6mm', '8mm', '10mm', '12mm', '20mm', '25mm'];
 
   // 이미 보관함에 있는 작업 이름(최근 것 먼저)
   List<String> _recentNames = [];
@@ -202,7 +203,12 @@ class _SmartSavePadState extends State<SmartSavePad> {
     );
   }
 
-  Widget _buildModeChip(Key key, String label, bool selected, VoidCallback onTap) {
+  Widget _buildModeChip(
+    Key key,
+    String label,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     return ChoiceChip(
       key: key,
       label: SizedBox(
@@ -211,10 +217,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
       ),
       selected: selected,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      labelStyle: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 14,
-      ),
+      labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
       onSelected: (_) => onTap(),
     );
   }
@@ -225,10 +228,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
       label: Text(size),
       selected: isSel,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      labelStyle: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 14,
-      ),
+      labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
       onSelected: (v) => setState(() => _selectedSize = size),
     );
   }
@@ -436,7 +436,10 @@ class _SmartSavePadState extends State<SmartSavePad> {
                             ),
                           };
 
-                          final now = DateTime.now().toString().substring(0, 16);
+                          final now = DateTime.now().toString().substring(
+                            0,
+                            16,
+                          );
                           if (overwriting) {
                             // 불러온 도면에 덮어쓴다. 저장해 둔 다른 칸은 그대로 두고 고친 칸만 바꾼다.
                             final noteText = _noteController.text.trim();
@@ -467,13 +470,16 @@ class _SmartSavePadState extends State<SmartSavePad> {
                               'bend_data': jsonEncode(widget.bendList),
                             });
                             // 다음 저장의 덮어쓰기 대상은 방금 새로 저장한 도면(처음 불러온 원본이 아니다).
-                            if (newId != null) MobileBendDataManager().moveSourceTo(newId);
+                            if (newId != null) {
+                              MobileBendDataManager().moveSourceTo(newId);
+                            }
                           }
                         } catch (e) {
                           // 저장이 안 됐으면 창을 그대로 두고 다시 누를 수 있게 한다.
                           debugPrint('보관함 저장 실패: $e');
                           if (mounted) setState(() => _saving = false);
-                          showSnackOnce(messenger,
+                          showSnackOnce(
+                            messenger,
                             SnackBar(
                               content: const Text('저장하지 못했습니다. 다시 시도하십시오.'),
                               backgroundColor: Colors.redAccent.shade400,
@@ -531,7 +537,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         // 프로젝트에 연결해 저장할 때(콜백이 있을 때)만 프로젝트 자재에도 들어간다.
                         if (overwriting) {
                           // 덮어쓴 것은 바로 되돌릴 수 있게 이전 값을 들고 있는다.
-                          showSnackOnce(messenger,
+                          showSnackOnce(
+                            messenger,
                             SnackBar(
                               content: Text('도면을 덮어썼습니다: ${target.title}'),
                               backgroundColor: makitaTeal,
@@ -552,7 +559,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
                           );
                           return;
                         }
-                        showSnackOnce(messenger,
+                        showSnackOnce(
+                          messenger,
                           SnackBar(
                             content: Text(
                               widget.onSaveCallback != null

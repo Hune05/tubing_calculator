@@ -34,28 +34,46 @@ class InputCutSummary extends StatelessWidget {
     if (totalCut <= 0) {
       return Text(
         emptyLabel,
-        style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: textColor,
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+        ),
       );
     }
-    return Text.rich(
+    // 10-17 폰 확인: 좁은 폰에서 한 줄 끝이 "· 경…"으로 잘려 경고가 안 보였다 → 경고는 통째로 다음 줄로.
+    final base = TextStyle(
+      color: textColor,
+      fontSize: 13,
+      fontWeight: FontWeight.bold,
+    );
+    return Wrap(
       key: const Key('input_cut_summary'),
-      TextSpan(
-        style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.bold),
-        children: [
-          const TextSpan(text: "총 절단 "),
+      children: [
+        Text.rich(
           TextSpan(
-            text: "${totalCut.round()}mm",
-            style: TextStyle(color: valueColor, fontWeight: FontWeight.w900),
+            style: base,
+            children: [
+              const TextSpan(text: "총 절단 "),
+              TextSpan(
+                text: "${totalCut.round()}mm",
+                style: TextStyle(
+                  color: valueColor,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
           ),
-          if (warnings > 0)
-            TextSpan(
-              text: " · 경고 $warnings",
-              style: const TextStyle(color: AppColors.caution, fontWeight: FontWeight.w900),
+        ),
+        if (warnings > 0)
+          Text(
+            " · 경고 $warnings",
+            style: base.copyWith(
+              color: AppColors.caution,
+              fontWeight: FontWeight.w900,
             ),
-        ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+          ),
+      ],
     );
   }
 }

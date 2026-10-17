@@ -104,7 +104,8 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
       backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
       shape: rounded(AppRadius.large),
-      titleTextStyle: AppText.title,
+      // 10-17: 야간 보기에서 창 제목이 고정 짙은 글자라 어두운 바탕에 안 보였다.
+      titleTextStyle: AppText.title.copyWith(color: p.text),
       contentTextStyle: AppText.body.copyWith(color: p.textSub),
     ),
     bottomSheetTheme: BottomSheetThemeData(

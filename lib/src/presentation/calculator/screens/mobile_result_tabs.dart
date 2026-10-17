@@ -17,12 +17,13 @@ import 'package:tubing_calculator/src/presentation/calculator/segment_length_che
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
+import 'package:tubing_calculator/src/presentation/field/field_progress_bus.dart';
+import 'package:tubing_calculator/src/presentation/field/measured_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/bend_to_cutting.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -87,6 +88,14 @@ String tubeMeasureSetup() {
     '게인 ${n(d.gain90)}',
     if (d.benderOffset != 0) '기준선 ${n(d.benderOffset)}',
   ].join(' · ');
+}
+
+/// 벤딩 실측 기록 묶음 이름(규격·장비 한 줄, 예: 12.7mm SUS · Swagelok 수동 (Hand)).
+/// 현장 탭과 아이소가 같은 이름으로 적는다.
+String tubeMeasureGroup() {
+  final c = AppSettingsController();
+  final od = c.isInch ? '${c.tubeOD}"' : '${c.tubeOD}mm';
+  return '$od ${c.tubeMaterial} · ${c.benderBrand} ${c.benderType}';
 }
 
 /// 현장 탭(가로 줄자 화면)에 넘길 마킹 자료.
@@ -921,10 +930,7 @@ class _MobileResultTabState extends State<MobileResultTab>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isSelected) ...[
-              pickCheck(),
-              const SizedBox(width: 2),
-            ],
+            if (isSelected) ...[pickCheck(), const SizedBox(width: 2)],
             Text(
               title,
               style: TextStyle(
@@ -1082,18 +1088,25 @@ class _MobileViewerTabState extends State<MobileViewerTab>
                           style: TextStyle(color: slate600, fontSize: 14),
                         ),
                       )
-                    : MobilePipeVisualizer(
+                    // 10-18: 캐드식 치수·검사 실측(길이·각도)은 전선관과 같은 공용 위젯.
+                    : MeasuredPipeVisualizer(
                         bendList: bendList,
                         tailLength: dataManager.tail,
                         initialStartDir: widget.startDir,
                         onStartDirChanged: widget.onStartDirChanged,
                         startFit: dataManager.startFit,
                         endFit: dataManager.endFit,
-                        isLightMode: false,
                         // 실제 비율로 그릴 때 쓸 제원.
                         bendRadius: dataManager.radius,
                         outerDiameter: _odMm(),
                         fittingDepth: dataManager.fittingDepth,
+                        compute: () =>
+                            computeTubeFieldData(startDir: widget.startDir),
+                        progressKey: kTubeFieldProgressKey,
+                        dataListenable: MobileBendDataManager(),
+                        measureGroup: tubeMeasureGroup,
+                        measureSetup: tubeMeasureSetup,
+                        source: 'tube',
                       ),
               ),
             ],

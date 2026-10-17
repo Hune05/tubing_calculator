@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 
 void main() {
   testWidgets('관 굵기가 바깥지름에 비례해 그려진다(22 → 26.5는 약 20% 굵게)', (tester) async {
@@ -27,11 +27,12 @@ void main() {
           home: Scaffold(
             body: RepaintBoundary(
               key: key,
-              child: ConduitIsoVisualizer(
+              child: MobilePipeVisualizer(
                 key: ValueKey('od$od'),
                 bendList: bends,
                 totalCutLength: 800,
                 bendRadius: 93,
+                useSavedDirection: false,
                 outerDiameter: od,
               ),
             ),

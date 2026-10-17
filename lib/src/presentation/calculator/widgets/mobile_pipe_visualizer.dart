@@ -1,11 +1,18 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:vector_math/vector_math_64.dart' as vmath;
 import 'package:shared_preferences/shared_preferences.dart'; // 🚀 SharedPreferences 추가
 import 'package:tubing_calculator/src/presentation/calculator/widgets/pipe_path_points.dart';
 
-const Color makitaTeal = AppColors.brand;
+Color get makitaTeal => AppColors.brand;
+
+/// 캐드식 치수 색(어두운 아이소 바탕 위).
+const Color _kDimLine = Color(0xFF9FB3C8);
+const Color _kDimPass = Color(0xFF4CC38A);
+const Color _kDimFail = Color(0xFFFF6B6B);
 
 // 🚀 기존 태블릿 코드와 충돌하지 않도록 독립적인 모바일 전용 클래스 생성
 class MobilePipeVisualizer extends StatefulWidget {
@@ -17,6 +24,9 @@ class MobilePipeVisualizer extends StatefulWidget {
   /// 폰에 적어 둔 시작 방향(계산기 마지막 값)을 덮어 쓸지. 보관함 도면은 도면에 적힌
   /// 방향을 그대로 써야 하므로 false로 연다(예전엔 열기만 해도 도면 방향이 바뀌어 저장됐다).
   final bool useSavedDirection;
+
+  /// 시작 방향을 폰에 적는 칸(튜브 mobile_saved_start_dir, 전선관 conduit_saved_start_dir).
+  final String startDirPrefKey;
   final ValueChanged<String>? onStartDirChanged;
   final bool isLightMode;
   final bool startFit;
@@ -34,6 +44,29 @@ class MobilePipeVisualizer extends StatefulWidget {
   /// 피팅에 관이 들어가는 깊이. 실제 형상으로 그릴 때 이 길이만큼 피팅을 그린다.
   final double fittingDepth;
 
+  /// 캐드식 치수에 붙일 실측 차이(배관 줄 번호 → 실측 − 계산 mm, 10-17).
+  /// 현장 탭 [실측]에서 넣은 값이다.
+  final Map<int, double> measuredDiff;
+
+  /// 절단 길이 실측 차이(없으면 null).
+  final double? cutDiff;
+
+  /// 합격 허용(± mm).
+  final double tolerance;
+
+  /// 치수 단추(끔·계획·실측)를 보일지. 보관함 상세처럼 보기만 하는 곳은 끈다.
+  final bool showDimControl;
+
+  /// "실측" 보기에서 치수(또는 관)를 누르면 그 구간이 끝나는 벤드 줄 번호로 부른다(마지막 직관은 -1).
+  final ValueChanged<int>? onLegTap;
+
+  /// "실측" 보기에서 꺾이는 점을 누르면 그 벤드 줄 번호로 부른다(각도 실측).
+  final ValueChanged<int>? onBendTap;
+
+  /// 각도 실측(벤드 줄 → 잰 각도 °)과 허용(± °).
+  final Map<int, double> measuredAngle;
+  final double angleTolerance;
+
   const MobilePipeVisualizer({
     super.key,
     required this.bendList,
@@ -42,6 +75,7 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.initialStartDir = 'RIGHT',
     this.onStartDirChanged,
     this.useSavedDirection = true,
+    this.startDirPrefKey = 'mobile_saved_start_dir',
     this.isLightMode = false,
     this.startFit = false,
     this.endFit = false,
@@ -49,6 +83,14 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.bendRadius = 0.0,
     this.outerDiameter = 0.0,
     this.fittingDepth = 0.0,
+    this.measuredDiff = const {},
+    this.cutDiff,
+    this.tolerance = 2.0,
+    this.showDimControl = false,
+    this.onLegTap,
+    this.onBendTap,
+    this.measuredAngle = const {},
+    this.angleTolerance = 1.0,
   });
 
   @override
@@ -77,17 +119,260 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
 
   late String _startDir;
 
+  /// 캐드식 치수(10-17): 0 끔 · 1 계획 · 2 계획+실측. 폰에 기억한다.
+  int _dimMode = 0;
+  static const String _dimKey = 'iso_dim_mode_v1';
+
+  /// 마지막으로 그린 치수 자리(누른 곳 찾기용). 그리기가 채운다.
+  final List<IsoDimHit> _dimHits = [];
+
+  /// 마지막으로 그린 꺾이는 점 자리(각도 실측 누르기용).
+  final List<IsoBendHit> _bendHits = [];
+
+  /// 실측 말풍선(누른 배지 하나만 자세히). null이면 닫힘.
+  ({
+    String title,
+    String plan,
+    String meas,
+    String diff,
+    bool ok,
+    VoidCallback edit,
+    Offset at,
+  })?
+  _detail;
+
+  String _n(double v) =>
+      v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
+
+  void _onTapUp(TapUpDetails d) {
+    if (_dimMode != 2) return;
+    final p = d.localPosition;
+    final had = _detail;
+    if (had != null) setState(() => _detail = null);
+    // 꺾이는 점(또는 그 각도 글)을 먼저 본다.
+    final bcb = widget.onBendTap;
+    if (bcb != null) {
+      IsoBendHit? hb;
+      var bd = 26.0;
+      for (final h in _bendHits) {
+        if (h.box.inflate(4).contains(p)) {
+          hb = h;
+          break;
+        }
+        final dd = (p - h.at).distance;
+        if (dd < bd) {
+          bd = dd;
+          hb = h;
+        }
+      }
+      if (hb != null) {
+        final meas = widget.measuredAngle[hb.row];
+        if (meas == null) {
+          bcb(hb.row);
+          return;
+        }
+        if (had != null && had.at == hb.at) return; // 같은 것 다시 누르면 닫기
+        final dd = meas - hb.design;
+        final row = hb.row;
+        final h = hb;
+        setState(
+          () => _detail = (
+            title: '${h.number}번 벤드 각도',
+            plan: '설계 ${_n(h.design)}°',
+            meas: '실측 ${_n(meas)}°',
+            diff: '${dd > 0 ? '+' : (dd < 0 ? '−' : '')}${_n(dd.abs())}°',
+            ok: dd.abs() <= widget.angleTolerance + 1e-9,
+            edit: () => bcb(row),
+            at: h.at,
+          ),
+        );
+        return;
+      }
+    }
+    final cb = widget.onLegTap;
+    if (cb == null) return;
+    IsoDimHit? best;
+    var bestD = 30.0;
+    for (final h in _dimHits) {
+      if (h.box.inflate(6).contains(p)) {
+        best = h;
+        break;
+      }
+      final dd = math.min(_segDist(p, h.a, h.b), _segDist(p, h.da, h.db));
+      if (dd < bestD) {
+        bestD = dd;
+        best = h;
+      }
+    }
+    if (best == null) return;
+    final diff = best.row >= 0 ? widget.measuredDiff[best.row] : null;
+    if (diff == null) {
+      cb(best.row);
+      return;
+    }
+    final at = best.box.center;
+    if (had != null && had.at == at) return;
+    final row = best.row;
+    final bh = best;
+    setState(
+      () => _detail = (
+        title: '${bh.number}번 구간 길이',
+        plan: '계획 ${bh.plan.round()}',
+        meas: '실측 ${(bh.plan + diff).round()}',
+        diff: '${diff > 0 ? '+' : ''}${_n(diff)} mm',
+        ok: diff.abs() <= widget.tolerance + 1e-9,
+        edit: () => cb(row),
+        at: at,
+      ),
+    );
+  }
+
+  // 잘 보이게 맞춤(10-17): 8방향을 미리 대 보고, 구간이 정면으로 보여 짧아지거나(점처럼)
+  // 서로 겹치는 일이 가장 적은 방향으로 돌린 뒤 화면에 맞춘다.
+  void _autoFit() {
+    final path = pipeDrawPath(
+      widget.bendList,
+      startDir: _startDir,
+      radius: 0,
+      tail: widget.tailLength,
+    );
+    final pts = path.points;
+    if (pts.length < 2) return;
+    final size = context.size;
+    if (size == null || size.isEmpty) return;
+    // 10-17 A11 시험: 관 모양만 보고 고르면 글이 몰리는 방향을 골랐다. 8방향을 화면 밖에서
+    // 실제로 그려 보고, 치수·각도 글이 멀리 밀리거나 겹치거나 화면 밖에 걸친 정도로 고른다.
+    final mode = !widget.showDimControl || _dimMode == 0 ? 1 : _dimMode;
+    final topInset = _topInset;
+    final bottomInset = _bottomInset;
+    final view = Rect.fromLTRB(
+      4,
+      math.max(4.0, topInset),
+      size.width - 4,
+      size.height - math.max(4.0, bottomInset),
+    );
+    var best = double.infinity;
+    var bestRy = _defaultRotY;
+    for (var k = 0; k < 8; k++) {
+      final ry = _defaultRotY + k * math.pi / 4;
+      final dh = <IsoDimHit>[];
+      final bh = <IsoBendHit>[];
+      final painter = MobileIsoPipePainter(
+        bendList: widget.bendList,
+        tailLength: widget.tailLength,
+        rotationX: _defaultRotX,
+        rotationY: ry,
+        zoomLevel: 0.85,
+        panX: 0,
+        panY: 0,
+        isFlippedX: false,
+        isFlippedY: false,
+        startDirection: _startDir,
+        isLightMode: widget.isLightMode,
+        startFit: widget.startFit,
+        endFit: widget.endFit,
+        realScale: _realScale,
+        bendRadius: widget.bendRadius,
+        outerDiameter: widget.outerDiameter,
+        fittingDepth: widget.fittingDepth,
+        dimMode: mode,
+        measuredDiff: widget.measuredDiff,
+        tolerance: widget.tolerance,
+        hits: dh,
+        bendHits: bh,
+        measuredAngle: widget.measuredAngle,
+        angleTolerance: widget.angleTolerance,
+        topInset: topInset,
+        bottomInset: bottomInset,
+      );
+      final rec = ui.PictureRecorder();
+      painter.paint(Canvas(rec), size);
+      rec.endRecording().dispose();
+      final sc =
+          _layoutScore(dh, bh, view) +
+          0.3 * isoViewScore(pts, _defaultRotX, ry) +
+          (k == 0 ? 0 : 0.2); // 비슷하면 처음 방향
+      if (sc < best - 1e-6) {
+        best = sc;
+        bestRy = ry;
+      }
+    }
+    setState(() {
+      _rotationX = _defaultRotX;
+      _rotationY = bestRy;
+      _zoomLevel = 0.85;
+      _panX = 0;
+      _panY = 0;
+      _isFlippedX = false;
+      _isFlippedY = false;
+      _detail = null;
+    });
+  }
+
+  /// 그려 본 치수·각도 글 자리로 매긴 점수(낮을수록 잘 보임).
+  static double _layoutScore(
+    List<IsoDimHit> dh,
+    List<IsoBendHit> bh,
+    Rect view,
+  ) {
+    var s = 0.0;
+    final boxes = <Rect>[];
+    for (final h in dh) {
+      s += math.max(0.0, (h.da - h.a).distance - 32) / 26; // 바깥으로 밀린 칸 수
+      boxes.add(h.box);
+    }
+    for (final h in bh) {
+      s += math.max(0.0, (h.box.center - h.at).distance - 30) / 20;
+      boxes.add(h.box);
+    }
+    for (final r in boxes) {
+      if (!view.contains(r.topLeft) || !view.contains(r.bottomRight)) s += 3;
+    }
+    for (var i = 0; i < boxes.length; i++) {
+      for (var j = i + 1; j < boxes.length; j++) {
+        if (boxes[i].overlaps(boxes[j])) s += 2;
+      }
+    }
+    return s;
+  }
+
+  static double _segDist(Offset p, Offset a, Offset b) {
+    final ab = b - a;
+    final l2 = ab.dx * ab.dx + ab.dy * ab.dy;
+    if (l2 < 1e-6) return (p - a).distance;
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / l2).clamp(0.0, 1.0);
+    return (p - (a + ab * t)).distance;
+  }
+
   @override
   void initState() {
     super.initState();
     _startDir = widget.initialStartDir; // 1. 우선 기본값으로 세팅
     if (widget.useSavedDirection) _loadSavedDirection();
+    if (widget.showDimControl) _loadDimMode();
+  }
+
+  Future<void> _loadDimMode() async {
+    try {
+      final v = (await SharedPreferences.getInstance()).getInt(_dimKey);
+      if (v != null && mounted) setState(() => _dimMode = v.clamp(0, 2));
+    } catch (_) {}
+  }
+
+  Future<void> _setDimMode(int v) async {
+    setState(() {
+      _dimMode = v;
+      _detail = null;
+    });
+    try {
+      await (await SharedPreferences.getInstance()).setInt(_dimKey, v);
+    } catch (_) {}
   }
 
   // 🚀 [추가됨] 앱을 껐다 켜도, 탭을 이동해도 무조건 기억하도록 로드하는 함수
   Future<void> _loadSavedDirection() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedDir = prefs.getString('mobile_saved_start_dir');
+    final savedDir = prefs.getString(widget.startDirPrefKey);
     if (savedDir != null && mounted) {
       setState(() {
         _startDir = savedDir;
@@ -106,6 +391,11 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
   @override
   void didUpdateWidget(covariant MobilePipeVisualizer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_detail != null &&
+        (!mapEquals(oldWidget.measuredDiff, widget.measuredDiff) ||
+            !mapEquals(oldWidget.measuredAngle, widget.measuredAngle))) {
+      _detail = null;
+    }
     if (widget.initialStartDir != oldWidget.initialStartDir &&
         widget.initialStartDir != _startDir) {
       setState(() => _startDir = widget.initialStartDir);
@@ -153,8 +443,39 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
     });
   }
 
+  /// 왼쪽 위 칸 묶음(높이를 재서 그림 자리를 비운다).
+  final GlobalKey _topKey = GlobalKey();
+  double _topBottom = 120;
+
+  void _measureTop() {
+    if (!mounted) return;
+    final box = _topKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final b = 16 + box.size.height + 8;
+    if ((b - _topBottom).abs() > 1) setState(() => _topBottom = b);
+  }
+
+  /// 그림 글이 피할 위·아래 높이(아이소 탭에서만).
+  double get _topInset =>
+      widget.showDimControl && !widget.isLightMode ? _topBottom : 0.0;
+  double get _bottomInset =>
+      widget.showDimControl && !widget.isLightMode ? 84.0 : 0.0;
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureTop());
+    // 10-17 밤샘 점검: 말풍선이 그리는 중에 context.size를 물어 디버그에서 오류, 릴리스는 지난 크기를 썼다.
+    return LayoutBuilder(
+      builder: (context, box) {
+        _viewSize = box.biggest;
+        return _buildStack();
+      },
+    );
+  }
+
+  Size _viewSize = const Size(360, 640);
+
+  Widget _buildStack() {
     return Stack(
       children: [
         // 🌟 1. 도면 렌더링 (제스처 컨트롤 포함)
@@ -162,6 +483,9 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
           onScaleStart: widget.isLightMode ? null : _onScaleStart,
           onScaleUpdate: widget.isLightMode ? null : _onScaleUpdate,
           onDoubleTap: widget.isLightMode ? null : _resetView,
+          onTapUp: widget.onLegTap == null && widget.onBendTap == null
+              ? null
+              : _onTapUp,
           child: Container(
             width: double.infinity,
             height: double.infinity,
@@ -188,17 +512,35 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                 bendRadius: widget.bendRadius,
                 outerDiameter: widget.outerDiameter,
                 fittingDepth: widget.fittingDepth,
+                dimMode: widget.showDimControl ? _dimMode : 0,
+                measuredDiff: widget.measuredDiff,
+                tolerance: widget.tolerance,
+                hits: _dimHits,
+                bendHits: _bendHits,
+                measuredAngle: widget.measuredAngle,
+                angleTolerance: widget.angleTolerance,
+                topInset: _topInset,
+                bottomInset: _bottomInset,
               ),
             ),
           ),
         ),
 
-        // 🌟 2. 좌측 상단: 시작 방향 변경 컨트롤러
-        Positioned(top: 16, left: 16, child: _buildStartDirSelector()),
+        // 🌟 2. 왼쪽 위 칸들(시작 방향·치수·실측 요약·절단): 한 묶음으로 — 좁으면 접히고(폰),
+        // 넓으면 한 줄로(가로 화면). 실제 높이를 재서 그림·치수 글이 그 밑으로 안 들어가게 한다(10-17).
+        // 10-17 폰 확인: 요약 글 길이가 바뀌면 줄이 접혔다 펴지며 그림이 위아래로 움직여, 다음에
+        // 누른 자리가 다른 것을 집었다 → 줄 배치를 글 길이와 상관없이 고정(요약은 한 줄, 넘치면 …).
+        Positioned(
+          top: 16,
+          left: 16,
+          right: 16,
+          child: LayoutBuilder(
+            builder: (context, c) =>
+                KeyedSubtree(key: _topKey, child: _buildTopBar(c.maxWidth)),
+          ),
+        ),
 
-        // 🌟 3. 우측 상단: 총 컷팅 기장 표시 뱃지
-        if (widget.totalCutLength > 0)
-          Positioned(top: 16, right: 16, child: _buildTotalCutBadge()),
+        if (_detail != null && _dimMode == 2) _buildDetailBubble(),
 
         // 🌟 4. 모바일 전용 컴팩트 컨트롤러 (하단 중앙 플로팅 바)
         if (!widget.isLightMode)
@@ -207,68 +549,95 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
             left: 0,
             right: 0,
             child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2B3643).withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black45,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
+              // 10-17: 320dp 폰에서 단추 하나 늘어 6px 넘쳤다 → 좁으면 살짝 줄여 맞춘다.
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildIconBtn(
-                      Icons.swap_vert,
-                      _isFlippedY ? Colors.redAccent : Colors.white,
-                      _toggleFlipY,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2B3643).withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black45,
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    _buildDivider(),
-                    _buildIconBtn(
-                      Icons.swap_horiz,
-                      _isFlippedX ? Colors.redAccent : Colors.white,
-                      _toggleFlipX,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildIconBtn(
+                          Icons.swap_vert,
+                          _isFlippedY ? Colors.redAccent : Colors.white,
+                          _toggleFlipY,
+                        ),
+                        _buildDivider(),
+                        _buildIconBtn(
+                          Icons.swap_horiz,
+                          _isFlippedX ? Colors.redAccent : Colors.white,
+                          _toggleFlipX,
+                        ),
+                        _buildDivider(),
+                        _buildIconBtn(
+                          Icons.rotate_90_degrees_cw,
+                          Colors.white,
+                          _rotateCamera,
+                        ),
+                        _buildDivider(),
+                        // 실제 비율로 그리기(모서리를 둥글게, 관 굵기도 그대로).
+                        _buildIconBtn(
+                          Icons.straighten,
+                          _realScale ? makitaTeal : Colors.white,
+                          () => setState(() => _realScale = !_realScale),
+                        ),
+                        _buildDivider(),
+                        _buildIconBtn(
+                          Icons.remove_circle_outline,
+                          Colors.white70,
+                          () => setState(
+                            () => _zoomLevel = (_zoomLevel - 0.2).clamp(
+                              0.2,
+                              10.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _buildIconBtn(
+                          Icons.add_circle_outline,
+                          Colors.white70,
+                          () => setState(
+                            () => _zoomLevel = (_zoomLevel + 0.2).clamp(
+                              0.2,
+                              10.0,
+                            ),
+                          ),
+                        ),
+                        _buildDivider(),
+                        // 잘 보이게 맞춤: 겹침이 가장 적은 방향 + 화면 맞춤(10-17).
+                        Semantics(
+                          label: '잘 보이게 맞춤',
+                          button: true,
+                          child: KeyedSubtree(
+                            key: const Key('iso_auto_fit'),
+                            child: _buildIconBtn(
+                              Icons.center_focus_strong,
+                              Colors.white,
+                              _autoFit,
+                            ),
+                          ),
+                        ),
+                        _buildDivider(),
+                        _buildIconBtn(Icons.refresh, makitaTeal, _resetView),
+                      ],
                     ),
-                    _buildDivider(),
-                    _buildIconBtn(
-                      Icons.rotate_90_degrees_cw,
-                      Colors.white,
-                      _rotateCamera,
-                    ),
-                    _buildDivider(),
-                    // 실제 비율로 그리기(모서리를 둥글게, 관 굵기도 그대로).
-                    _buildIconBtn(
-                      Icons.straighten,
-                      _realScale ? makitaTeal : Colors.white,
-                      () => setState(() => _realScale = !_realScale),
-                    ),
-                    _buildDivider(),
-                    _buildIconBtn(
-                      Icons.remove_circle_outline,
-                      Colors.white70,
-                      () => setState(
-                        () => _zoomLevel = (_zoomLevel - 0.2).clamp(0.2, 10.0),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    _buildIconBtn(
-                      Icons.add_circle_outline,
-                      Colors.white70,
-                      () => setState(
-                        () => _zoomLevel = (_zoomLevel + 0.2).clamp(0.2, 10.0),
-                      ),
-                    ),
-                    _buildDivider(),
-                    _buildIconBtn(Icons.refresh, makitaTeal, _resetView),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -333,7 +702,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
 
                   // 🚀 기기 내부에 저장
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs.setString('mobile_saved_start_dir', val);
+                  await prefs.setString(widget.startDirPrefKey, val);
 
                   if (widget.onStartDirChanged != null) {
                     widget.onStartDirChanged!(val);
@@ -343,6 +712,321 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 캐드식 치수 고르기: 끔 · 계획 · 실측(계획 + 현장 탭에서 잰 값).
+  Widget _buildDimSelector() {
+    Widget seg(int v, String label) {
+      final on = _dimMode == v;
+      return GestureDetector(
+        key: Key('iso_dim_$v'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _setDimMode(v),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: on ? makitaTeal : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: on ? Colors.white : Colors.white70,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 3, 3, 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2B3643).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '치수',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white70,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          seg(0, '끔'),
+          seg(1, '계획'),
+          seg(2, '실측'),
+        ],
+      ),
+    );
+  }
+
+  String _signed(double v) {
+    final r = v.round();
+    return r > 0 ? '+$r' : (r < 0 ? '−${-r}' : '0');
+  }
+
+  // 왼쪽 위 칸 묶음: 넓으면 한 줄, 좁으면 [시작 방향·치수] 아래 [요약·절단] 한 줄.
+  Widget _buildTopBar(double width) {
+    final dim = widget.showDimControl && !widget.isLightMode;
+    final m2 = dim && _dimMode == 2;
+    final summaryRow = Row(
+      children: [
+        Flexible(child: _buildMeasureSummary()),
+        if (widget.onLegTap != null) ...[
+          const SizedBox(width: 8),
+          _buildCutMeasureChip(),
+        ],
+      ],
+    );
+    if (width >= 700) {
+      return Row(
+        children: [
+          _buildStartDirSelector(),
+          if (dim) ...[const SizedBox(width: 8), _buildDimSelector()],
+          if (m2) ...[const SizedBox(width: 8), Expanded(child: summaryRow)],
+          if (!m2) const Spacer(),
+          if (widget.totalCutLength > 0) ...[
+            const SizedBox(width: 8),
+            _buildTotalCutBadge(),
+          ],
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildStartDirSelector(),
+            if (dim) _buildDimSelector(),
+            if (widget.totalCutLength > 0) _buildTotalCutBadge(),
+          ],
+        ),
+        if (m2) ...[const SizedBox(height: 8), summaryRow],
+      ],
+    );
+  }
+
+  // 실측 요약: 잰 구간 수 · 불합격 수 · 절단 차이.
+  Widget _buildMeasureSummary() {
+    final diffs = widget.measuredDiff.values.toList();
+    final fails = diffs.where((d) => d.abs() > widget.tolerance + 1e-9).length;
+    final cut = widget.cutDiff;
+    final cutFail = cut != null && cut.abs() > widget.tolerance + 1e-9;
+    final String text =
+        diffs.isEmpty && cut == null && widget.measuredAngle.isEmpty
+        ? (widget.onLegTap != null
+              ? '치수·꺾이는 점을 누르면 실측 넣기'
+              : '실측 없음 · 현장 탭 [실측]에서 넣습니다')
+        : [
+            // 10-17 폰 확인: 길게 쓰면 좁은 폰에서 …로 잘려 각도 결과가 안 보였다 → 짧게.
+            if (diffs.isNotEmpty)
+              '길이 ${diffs.length} ${fails == 0 ? '합격' : '불합격 $fails'}',
+            if (widget.measuredAngle.isNotEmpty)
+              '각도 ${widget.measuredAngle.length} ${_angleFailText()}',
+            if (diffs.isEmpty &&
+                widget.measuredAngle.isEmpty &&
+                cut != null &&
+                widget.onLegTap != null)
+              '길이·각도 없음',
+            if (cut != null && widget.onLegTap == null) '절단 ${_signed(cut)}',
+          ].join(' · ');
+    final angles = widget.measuredAngle;
+    final angleFails = angles.entries.where((e) {
+      final design = _designAngle(e.key);
+      return design != null &&
+          (e.value - design).abs() > widget.angleTolerance + 1e-9;
+    }).length;
+    final bad = fails > 0 || cutFail || angleFails > 0;
+    return Container(
+      key: const Key('iso_measure_summary'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2B3643).withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(4),
+        border: Border(
+          left: BorderSide(
+            color: diffs.isEmpty && cut == null
+                ? Colors.white38
+                : (bad ? _kDimFail : _kDimPass),
+            width: 4,
+          ),
+        ),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 12.5,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  double? _designAngle(int row) {
+    if (row < 0 || row >= widget.bendList.length) return null;
+    return (widget.bendList[row]['angle'] as num?)?.toDouble();
+  }
+
+  String _angleFailText() {
+    final n = widget.measuredAngle.entries.where((e) {
+      final design = _designAngle(e.key);
+      return design != null &&
+          (e.value - design).abs() > widget.angleTolerance + 1e-9;
+    }).length;
+    return n == 0 ? '합격' : '불합격 $n';
+  }
+
+  // 누른 배지 하나의 자세한 값: 계획·실측·차이 + [다시 넣기].
+  Widget _buildDetailBubble() {
+    final d = _detail!;
+    final size = _viewSize;
+    const w = 230.0;
+    final left = (d.at.dx - w / 2).clamp(
+      8.0,
+      math.max(8.0, size.width - w - 8),
+    );
+    final below = d.at.dy < size.height / 2;
+    final color = d.ok ? _kDimPass : _kDimFail;
+    final card = Container(
+      key: const Key('iso_measure_detail'),
+      width: w,
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117).withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color, width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  d.title,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                d.ok ? '합격' : '불합격',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${d.plan}  →  ${d.meas}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          Text(
+            d.diff,
+            style: TextStyle(
+              color: color,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                onPressed: () => setState(() => _detail = null),
+                child: const Text('닫기'),
+              ),
+              TextButton(
+                key: const Key('iso_measure_detail_edit'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                onPressed: () {
+                  final edit = d.edit;
+                  setState(() => _detail = null);
+                  edit();
+                },
+                child: const Text('다시 넣기'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    return Positioned(
+      left: left.toDouble(),
+      top: below ? d.at.dy + 18 : null,
+      bottom: below ? null : size.height - d.at.dy + 18,
+      child: card,
+    );
+  }
+
+  // 절단 길이 실측(10-17): 벤드로 끝나는 배관은 아이소에 마지막 직관이 없어 누를 곳이 없다.
+  Widget _buildCutMeasureChip() {
+    final cut = widget.cutDiff;
+    final ok = cut != null && cut.abs() <= widget.tolerance + 1e-9;
+    return GestureDetector(
+      key: const Key('iso_cut_measure'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => widget.onLegTap?.call(-1),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2B3643).withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.content_cut, size: 14, color: Colors.white70),
+            const SizedBox(width: 6),
+            Text(
+              cut == null ? '절단 넣기' : '절단 ${_signed(cut)}',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+                color: cut == null
+                    ? Colors.white
+                    : (ok ? _kDimPass : _kDimFail),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -366,7 +1050,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.straighten, size: 14, color: makitaTeal),
+          Icon(Icons.straighten, size: 14, color: makitaTeal),
           const SizedBox(width: 6),
           Text(
             "총 절단 길이: ",
@@ -416,6 +1100,48 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
 // =========================================================
 // 🚀 아래부터는 태블릿과 충돌하지 않도록 이름이 변경된 렌더링 클래스들
 // =========================================================
+
+/// 아이소에 그린 치수 하나의 자리(누른 곳 찾기용).
+class IsoDimHit {
+  /// 구간이 끝나는 벤드 줄(마지막 직관은 -1).
+  final int row;
+
+  /// 구간 번호(그 구간이 끝나는 벤드 번호, 마지막 직관은 0)·계획 길이.
+  final int number;
+  final double plan;
+
+  /// 관 위 두 꼭짓점·치수선 두 끝·글 칸(화면 좌표).
+  final Offset a, b, da, db;
+  final Rect box;
+  const IsoDimHit({
+    required this.row,
+    this.number = 0,
+    this.plan = 0,
+    required this.a,
+    required this.b,
+    required this.da,
+    required this.db,
+    required this.box,
+  });
+}
+
+/// 아이소에 그린 꺾이는 점 하나(각도 실측 누르기용).
+class IsoBendHit {
+  final int row;
+  final Offset at;
+  final Rect box;
+
+  /// 벤드 번호·설계 각도.
+  final int number;
+  final double design;
+  const IsoBendHit({
+    required this.row,
+    required this.at,
+    required this.box,
+    this.number = 0,
+    this.design = 0,
+  });
+}
 
 abstract class MobileRenderable {
   double get z;
@@ -732,6 +1458,7 @@ class MobileLabelRenderable implements MobileRenderable {
     final textSpan = TextSpan(
       text: text,
       style: TextStyle(
+        fontFamily: kAppFontFamily,
         color: textColor,
         fontSize: fontSize,
         fontWeight: isStartLabel
@@ -824,6 +1551,23 @@ class MobileIsoPipePainter extends CustomPainter {
   final double outerDiameter;
   final double fittingDepth;
 
+  /// 캐드식 치수: 0 끔 · 1 계획 · 2 계획+실측.
+  final int dimMode;
+  final Map<int, double> measuredDiff;
+  final double tolerance;
+
+  /// 그린 치수 자리를 여기에 적어 준다(누른 곳 찾기용, 없으면 안 적음).
+  final List<IsoDimHit>? hits;
+  final List<IsoBendHit>? bendHits;
+  final Map<int, double> measuredAngle;
+  final double angleTolerance;
+
+  /// 위쪽 단추가 덮는 높이(치수 글을 그 아래에만 놓는다).
+  final double topInset;
+
+  /// 아래 단추 줄이 덮는 높이.
+  final double bottomInset;
+
   MobileIsoPipePainter({
     required this.bendList,
     this.tailLength = 0.0,
@@ -843,6 +1587,15 @@ class MobileIsoPipePainter extends CustomPainter {
     this.bendRadius = 0.0,
     this.outerDiameter = 0.0,
     this.fittingDepth = 0.0,
+    this.dimMode = 0,
+    this.measuredDiff = const {},
+    this.tolerance = 2.0,
+    this.hits,
+    this.bendHits,
+    this.measuredAngle = const {},
+    this.angleTolerance = 1.0,
+    this.topInset = 0,
+    this.bottomInset = 0,
   });
 
   double _getVisualLength(double realLength) {
@@ -910,8 +1663,13 @@ class MobileIsoPipePainter extends CustomPainter {
 
     vmath.Vector3 center3D = _calculateCenter(pts3D);
     double maxRadius = _calculateMaxRadius(pts3D, center3D);
-    double scale =
-        (math.min(size.width, size.height) * 0.4) / maxRadius * zoomLevel;
+    // 10-17: 아이소 탭은 위쪽 칸·아래 단추 줄 사이 빈 곳에 맞춰 그린다(폰 가로에서 칸에 가렸다).
+    final double drawTop = topInset;
+    final double drawBottom = size.height - bottomInset;
+    final bool inset = topInset + bottomInset > 0 && drawBottom - drawTop > 80;
+    final double availH = inset ? drawBottom - drawTop : size.height;
+    final double centerY = inset ? (drawTop + drawBottom) / 2 : size.height / 2;
+    double scale = (math.min(size.width, availH) * 0.4) / maxRadius * zoomLevel;
 
     vmath.Matrix4 cameraMatrix = vmath.Matrix4.identity()
       ..rotateX(rotationX)
@@ -927,7 +1685,7 @@ class MobileIsoPipePainter extends CustomPainter {
       double finalY = isFlippedY ? -p.y : p.y;
       return Offset(
         finalX * scale + size.width / 2 + panX,
-        -finalY * scale + size.height / 2 + panY,
+        -finalY * scale + centerY + panY,
       );
     }
 
@@ -989,6 +1747,7 @@ class MobileIsoPipePainter extends CustomPainter {
       final double realL = (bendList[idx]['length'] as num?)?.toDouble() ?? 0.0;
       if (realL <= 0) continue;
       final double angle = (bendList[idx]['angle'] as num?)?.toDouble() ?? 0.0;
+      if (dimMode > 0 && angle == 0.0) continue;
       final int mNum = internalMarkNums[idx];
       final bool isSelected = selectedSegmentIndex == idx;
 
@@ -1148,6 +1907,423 @@ class MobileIsoPipePainter extends CustomPainter {
     for (var label in labelQueue) {
       label.draw(canvas, pipePaint, highlightPaint, outlinePaint);
     }
+    // 치수는 번호 배지 위에 그리고, 글은 배지 자리를 피해 놓는다(10-17 복잡한 배관 시험: 배지에 가렸다).
+    if (dimMode > 0) {
+      _drawCadDims(
+        canvas,
+        drawPath.corners,
+        (vmath.Vector3 w) => to2D(cameraMatrix.transformed3(w - center3D)),
+        scale,
+        size,
+        avoid: [
+          for (final l in labelQueue)
+            Rect.fromCenter(
+              center: l.centerPos,
+              width: 38 * sf,
+              height: 32 * sf,
+            ),
+        ],
+      );
+    }
+  }
+
+  // ── 캐드식 치수(10-17) ──
+  // 배치도 캐드식 치수처럼: 관에서 조금 떨어진 보조선 두 줄 + 화살표 치수선 + 글.
+  // 치수는 꺾이는 점(꼭짓점)에서 다음 꺾이는 점까지(현장 탭 실측과 같은 구간).
+  // 보조선은 구간과 직각인 X·Y·Z 축 가운데 화면에서 바깥쪽을 향하는 축을 따른다(아이소 도면 방식).
+  void _drawCadDims(
+    Canvas canvas,
+    List<vmath.Vector3> corners,
+    Offset Function(vmath.Vector3) P,
+    double scale,
+    Size size, {
+    List<Rect> avoid = const [],
+  }) {
+    hits?.clear();
+    bendHits?.clear();
+    if (corners.length < 2) return;
+    // 구간 묶기: 앞 벤드(처음은 관 끝)부터 이 벤드까지. 사이 직관 줄은 한 구간으로.
+    final legs = <({int from, int to, double plan, int row})>[];
+    var from = 0;
+    var sum = 0.0;
+    for (var i = 0; i < bendList.length && i + 1 < corners.length; i++) {
+      final len = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
+      final ang = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
+      sum += len;
+      if (ang > 0) {
+        legs.add((from: from, to: i + 1, plan: sum, row: i));
+        from = i + 1;
+        sum = 0.0;
+      }
+    }
+    final lastCorner = math.min(bendList.length, corners.length - 1);
+    if (sum > 0.01 && lastCorner > from) {
+      legs.add((from: from, to: lastCorner, plan: sum, row: -1));
+    }
+
+    final centre = P(_calculateCenter(corners));
+    final placed = <Rect>[...avoid];
+    final linePaint = Paint()
+      ..color = _kDimLine
+      ..strokeWidth = 1.2;
+    final extPaint = Paint()
+      ..color = _kDimLine.withValues(alpha: 0.75)
+      ..strokeWidth = 1.0;
+
+    for (final leg in legs) {
+      final a3 = corners[leg.from], b3 = corners[leg.to];
+      final d3 = b3 - a3;
+      if (d3.length2 < 1e-9) continue;
+      final dn = d3.normalized();
+      final a2 = P(a3), b2 = P(b3);
+      final seg2 = b2 - a2;
+      final segLen = seg2.distance;
+      if (segLen < 6) continue;
+      final segN = seg2 / segLen;
+      final mid = (a2 + b2) / 2;
+      var outward = mid - centre;
+      outward = outward.distance < 1
+          ? Offset(-segN.dy, segN.dx)
+          : outward / outward.distance;
+
+      // 보조선 방향: 구간과 직각인 축 가운데 화면에서 바깥쪽·치수선과 덜 나란한 것.
+      // 보조선 방향 후보: 구간과 직각인 축(화면 바깥쪽·치수선과 덜 나란한 순).
+      final cands = <({Offset u, double score})>[];
+      for (final ax in [
+        vmath.Vector3(1, 0, 0),
+        vmath.Vector3(0, 1, 0),
+        vmath.Vector3(0, 0, 1),
+      ]) {
+        final pv = ax - dn * ax.dot(dn);
+        if (pv.length < 0.5) continue;
+        pv.normalize();
+        for (final sgn in [1.0, -1.0]) {
+          final raw = P(a3 + pv * (sgn / scale * 40)) - a2;
+          final rl = raw.distance;
+          if (rl < 12) continue; // 화면에서 거의 점으로 보이는 축
+          final u = raw / rl;
+          final cross = (u.dx * segN.dy - u.dy * segN.dx).abs();
+          if (cross < 0.35) continue; // 치수선과 거의 나란함
+          cands.add((
+            u: u,
+            score: u.dx * outward.dx + u.dy * outward.dy + 0.3 * cross,
+          ));
+        }
+      }
+      if (cands.isEmpty) {
+        final n = Offset(-segN.dy, segN.dx);
+        final out = (n.dx * outward.dx + n.dy * outward.dy) >= 0 ? n : -n;
+        cands.add((u: out, score: 1));
+        cands.add((u: -out, score: 0));
+      }
+      cands.sort((x, y) => y.score.compareTo(x.score));
+
+      final planText = '${leg.plan.round()}';
+      final diff = leg.row >= 0 ? measuredDiff[leg.row] : null;
+      final showMeasured = dimMode == 2 && diff != null;
+      // 10-17: 실측 보기는 짧은 배지(+3)만 — 누르면 말풍선에 실측 값(빽빽함 줄이기).
+      final measText = showMeasured ? _signedDim(diff) : null;
+
+      // 자리 잡기: 앞 치수·번호 배지와 안 겹치고 화면 안에 드는 곳.
+      // 바깥쪽이 화면 밖이면(돌려서 형상이 가장자리에 붙을 때) 다른 축·반대쪽을 쓴다.
+      final view = Rect.fromLTRB(
+        4,
+        math.max(4.0, topInset),
+        size.width - 4,
+        size.height - math.max(4.0, bottomInset),
+      );
+      bool inside(Rect r) =>
+          r.left >= view.left &&
+          r.top >= view.top &&
+          r.right <= view.right &&
+          r.bottom <= view.bottom;
+      // 글 칸: 치수선 방향으로 돌린 글의 바깥 네모(짧은 구간의 긴 실측 글이 화면 끝에서 잘렸다).
+      double textW(String t, double size) =>
+          (TextPainter(
+            text: TextSpan(
+              text: t,
+              style: TextStyle(
+                fontFamily: kAppFontFamily,
+                fontSize: size,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          )..layout()).width +
+          8;
+      final tw = math.max(
+        textW(planText, 13),
+        measText == null ? 0.0 : textW(measText, 12),
+      );
+      final th = showMeasured ? 34.0 : 18.0;
+      final ca = segN.dx.abs(), sa = segN.dy.abs();
+      final bw = tw * ca + th * sa, bh = tw * sa + th * ca;
+      Rect boxAt(Offset u, double dist) => Rect.fromCenter(
+        center: mid + u * (dist + (showMeasured ? 16 : 9)),
+        width: bw,
+        height: bh,
+      );
+      ({Offset u, double dist})? pick;
+      ({Offset u, double dist})? fallback;
+      for (final c in cands) {
+        var dist = 30.0;
+        for (var tier = 0; tier < 5; tier++) {
+          final r = boxAt(c.u, dist);
+          final free = !placed.any((q) => q.overlaps(r));
+          if (inside(r)) {
+            fallback ??= (u: c.u, dist: dist);
+            if (free) {
+              pick = (u: c.u, dist: dist);
+              break;
+            }
+          }
+          dist += 26;
+        }
+        if (pick != null) break;
+      }
+      final chosen = pick ?? fallback ?? (u: cands.first.u, dist: 30.0);
+      final u = chosen.u;
+      final dist = chosen.dist;
+      final box = boxAt(u, dist);
+      placed.add(box);
+
+      final pa = a2 + u * dist, pb = b2 + u * dist;
+      hits?.add(
+        IsoDimHit(
+          row: leg.row,
+          number: leg.row >= 0 ? legs.indexOf(leg) + 1 : 0,
+          plan: leg.plan,
+          a: a2,
+          b: b2,
+          da: pa,
+          db: pb,
+          box: box,
+        ),
+      );
+      canvas.drawLine(a2 + u * 5, pa + u * 5, extPaint);
+      canvas.drawLine(b2 + u * 5, pb + u * 5, extPaint);
+      canvas.drawLine(pa, pb, linePaint);
+      _dimArrow(canvas, pa, segN);
+      _dimArrow(canvas, pb, -segN);
+
+      var ang = math.atan2(segN.dy, segN.dx);
+      if (ang > math.pi / 2) ang -= math.pi;
+      if (ang < -math.pi / 2) ang += math.pi;
+      // 계획 값은 치수선 바로 바깥, 실측은 그 바깥(관 쪽 번호 배지에 안 가리게).
+      _dimText(canvas, planText, mid + u * (dist + 9), ang, Colors.white, 13);
+      if (measText != null) {
+        final ok = diff!.abs() <= tolerance + 1e-9;
+        _badge(canvas, measText, mid + u * (dist + 25), ok);
+      }
+    }
+    if (dimMode == 2) _drawBendAngles(canvas, corners, P, placed, size);
+  }
+
+  // 꺾이는 점마다 각도(실측 보기): 잰 각도는 "91° (+1°)" 초록·빨강, 안 잰 것은 흐린 설계 각도.
+  // 형상 바깥쪽으로 떼어 놓고, 앞에 놓은 글과 겹치면 더 바깥으로.
+  void _drawBendAngles(
+    Canvas canvas,
+    List<vmath.Vector3> corners,
+    Offset Function(vmath.Vector3) P,
+    List<Rect> placed,
+    Size size,
+  ) {
+    final centre = P(_calculateCenter(corners));
+    final view = Rect.fromLTRB(
+      4,
+      math.max(4.0, topInset),
+      size.width - 4,
+      size.height - math.max(4.0, bottomInset),
+    );
+    bool inside(Rect r) =>
+        r.left >= view.left &&
+        r.top >= view.top &&
+        r.right <= view.right &&
+        r.bottom <= view.bottom;
+    var bendNo = 0;
+    for (var i = 0; i < bendList.length && i + 1 < corners.length; i++) {
+      final design = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
+      if (design <= 0) continue;
+      bendNo++;
+      final c2 = P(corners[i + 1]);
+      var out = c2 - centre;
+      out = out.distance < 1 ? const Offset(0, -1) : out / out.distance;
+      final meas = measuredAngle[i];
+      String f(double v) =>
+          v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
+      final String text;
+      final Color color;
+      if (meas == null) {
+        text = '${f(design)}°';
+        color = Colors.white38;
+      } else {
+        final d = ((meas - design) * 10).round() / 10;
+        text = '${d > 0 ? '+' : (d < 0 ? '−' : '')}${f(d.abs())}°';
+        color = d.abs() <= angleTolerance + 1e-9 ? _kDimPass : _kDimFail;
+      }
+      final tp = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            fontFamily: kAppFontFamily,
+            color: color,
+            fontSize: meas == null ? 11 : 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      // 바깥쪽으로 밀어 보고, 안 되면 반대쪽·옆쪽도 본다.
+      Rect boxAt(Offset dir, double dist) => Rect.fromCenter(
+        center: c2 + dir * (dist + tp.width / 2 * dir.dx.abs()),
+        width: tp.width + 8,
+        height: tp.height + 4,
+      );
+      Rect? box;
+      Rect? fallback;
+      for (final dir in [
+        out,
+        Offset(-out.dy, out.dx),
+        Offset(out.dy, -out.dx),
+        -out,
+      ]) {
+        var dist = 22.0;
+        for (var tier = 0; tier < 6; tier++) {
+          final r = boxAt(dir, dist);
+          if (inside(r)) {
+            fallback ??= r;
+            if (!placed.any((q) => q.overlaps(r))) {
+              box = r;
+              break;
+            }
+          }
+          dist += 16;
+        }
+        if (box != null) break;
+      }
+      box ??= fallback ?? boxAt(out, 22);
+      placed.add(box);
+      // 꺾이는 점에서 떨어졌으면 가는 선으로 잇는다(어느 점 각도인지 보이게).
+      final edge = Offset(
+        c2.dx.clamp(box.left, box.right),
+        c2.dy.clamp(box.top, box.bottom),
+      );
+      if ((edge - c2).distance > 14) {
+        canvas.drawLine(
+          c2,
+          edge,
+          Paint()
+            ..color = color.withValues(alpha: 0.7)
+            ..strokeWidth = 1,
+        );
+        canvas.drawCircle(c2, 2.5, Paint()..color = color);
+      }
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(3)),
+        Paint()..color = const Color(0xFF151B22).withValues(alpha: 0.85),
+      );
+      if (meas != null) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(box, const Radius.circular(3)),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = color.withValues(alpha: 0.6),
+        );
+      }
+      tp.paint(canvas, box.center - Offset(tp.width / 2, tp.height / 2));
+      bendHits?.add(
+        IsoBendHit(row: i, at: c2, box: box, number: bendNo, design: design),
+      );
+    }
+  }
+
+  /// 실측 차이 배지(초록·빨강 바탕, 똑바로 세운 글).
+  void _badge(Canvas canvas, String text, Offset at, bool ok) {
+    final color = ok ? _kDimPass : _kDimFail;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontFamily: kAppFontFamily,
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final r = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: at, width: tp.width + 10, height: tp.height + 4),
+      const Radius.circular(4),
+    );
+    canvas.drawRRect(
+      r,
+      Paint()..color = Color.lerp(const Color(0xFF151B22), color, 0.18)!,
+    );
+    canvas.drawRRect(
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = color.withValues(alpha: 0.7),
+    );
+    tp.paint(canvas, at - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  String _signedDim(double v) {
+    final r = v.round();
+    return r > 0 ? '+$r' : (r < 0 ? '−${-r}' : '0');
+  }
+
+  void _dimArrow(Canvas canvas, Offset tip, Offset dirInward) {
+    final n = Offset(-dirInward.dy, dirInward.dx);
+    final base = tip + dirInward * 8;
+    canvas.drawPath(
+      Path()
+        ..moveTo(tip.dx, tip.dy)
+        ..lineTo(base.dx + n.dx * 3, base.dy + n.dy * 3)
+        ..lineTo(base.dx - n.dx * 3, base.dy - n.dy * 3)
+        ..close(),
+      Paint()..color = _kDimLine,
+    );
+  }
+
+  void _dimText(
+    Canvas canvas,
+    String text,
+    Offset at,
+    double angle,
+    Color color,
+    double size,
+  ) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontFamily: kAppFontFamily,
+          color: color,
+          fontSize: size,
+          fontWeight: FontWeight.w800,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(angle);
+    final r = Rect.fromCenter(
+      center: Offset.zero,
+      width: tp.width + 6,
+      height: tp.height,
+    );
+    canvas.drawRect(
+      r,
+      Paint()..color = const Color(0xFF151B22).withValues(alpha: 0.85),
+    );
+    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    canvas.restore();
   }
 
   vmath.Vector3 _calculateCenter(List<vmath.Vector3> pts) {
@@ -1250,6 +2426,89 @@ class MobileIsoPipePainter extends CustomPainter {
         oldDelegate.realScale != realScale ||
         oldDelegate.bendRadius != bendRadius ||
         oldDelegate.outerDiameter != outerDiameter ||
-        oldDelegate.fittingDepth != fittingDepth;
+        oldDelegate.fittingDepth != fittingDepth ||
+        oldDelegate.dimMode != dimMode ||
+        oldDelegate.tolerance != tolerance ||
+        oldDelegate.angleTolerance != angleTolerance ||
+        oldDelegate.topInset != topInset ||
+        oldDelegate.bottomInset != bottomInset ||
+        !mapEquals(oldDelegate.measuredAngle, measuredAngle) ||
+        !mapEquals(oldDelegate.measuredDiff, measuredDiff);
   }
+}
+
+// ── 잘 보이게 맞춤 점수(10-17): 낮을수록 잘 보인다. 시험에서 방향별 값을 볼 수 있게 밖에 둔다. ──
+
+double _isoSegDist(Offset p, Offset a, Offset b) {
+  final ab = b - a;
+  final l2 = ab.dx * ab.dx + ab.dy * ab.dy;
+  if (l2 < 1e-6) return (p - a).distance;
+  final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / l2).clamp(0.0, 1.0);
+  return (p - (a + ab * t)).distance;
+}
+
+double isoViewScore(List<vmath.Vector3> pts, double rx, double ry) {
+  final m = vmath.Matrix4.identity()
+    ..rotateX(rx)
+    ..rotateY(ry);
+  final p2 = [
+    for (final v in pts)
+      () {
+        final q = m.transformed3(v);
+        return Offset(q.x, -q.y);
+      }(),
+  ];
+  var minX = double.infinity, minY = double.infinity;
+  var maxX = -double.infinity, maxY = -double.infinity;
+  for (final o in p2) {
+    minX = math.min(minX, o.dx);
+    maxX = math.max(maxX, o.dx);
+    minY = math.min(minY, o.dy);
+    maxY = math.max(maxY, o.dy);
+  }
+  final w = math.max(maxX - minX, 1e-6), h = math.max(maxY - minY, 1e-6);
+  final diag = math.sqrt(w * w + h * h);
+  var score = 0.0;
+  final n = p2.length - 1;
+  for (var i = 0; i < n; i++) {
+    final l3 = (pts[i + 1] - pts[i]).length;
+    if (l3 < 1e-6) continue;
+    final r = (p2[i + 1] - p2[i]).distance / l3;
+    if (r < 0.35) score += 1 + 2 * (0.35 - r) / 0.35; // 정면으로 보여 점처럼
+  }
+  for (var i = 0; i < n; i++) {
+    for (var j = i + 2; j < n; j++) {
+      final d = _isoSegSegDist(p2[i], p2[i + 1], p2[j], p2[j + 1]) / diag;
+      // 겹치거나 가까우면(사이에 치수 글 둘 자리가 없음) 벌점.
+      if (d < 0.1) score += 0.5 + (0.1 - d) / 0.1;
+    }
+  }
+  // 치수 글은 구간 가운데에 붙는다: 가운데끼리 가까우면 글이 몰린다.
+  for (var i = 0; i < n; i++) {
+    for (var j = i + 1; j < n; j++) {
+      final mi = (p2[i] + p2[i + 1]) / 2, mj = (p2[j] + p2[j + 1]) / 2;
+      final d = (mi - mj).distance / diag;
+      if (d < 0.15) score += (0.15 - d) / 0.15;
+    }
+  }
+  // 세로 화면에 맞는 모양을 조금 더 좋게 본다.
+  score += 0.2 * (math.log((w / h) / 0.7)).abs();
+  return score;
+}
+
+double _isoSegSegDist(Offset a, Offset b, Offset c, Offset d) {
+  double cross(Offset o, Offset p, Offset q) =>
+      (p.dx - o.dx) * (q.dy - o.dy) - (p.dy - o.dy) * (q.dx - o.dx);
+  final d1 = cross(c, d, a), d2 = cross(c, d, b);
+  final d3 = cross(a, b, c), d4 = cross(a, b, d);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+    return 0;
+  }
+  return [
+    _isoSegDist(a, c, d),
+    _isoSegDist(b, c, d),
+    _isoSegDist(c, a, b),
+    _isoSegDist(d, a, b),
+  ].reduce(math.min);
 }

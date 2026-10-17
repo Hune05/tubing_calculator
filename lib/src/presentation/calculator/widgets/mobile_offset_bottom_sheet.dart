@@ -4,7 +4,8 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
-import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
+    show showSheetSnack;
 
 import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -216,7 +217,8 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       {'length': travel, 'angle': angle, 'rotation': r2},
     ]);
 
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(_addedMessage(startDistance, shrink)),
         backgroundColor: makitaTeal,
@@ -253,9 +255,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: const Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
@@ -323,9 +323,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: Row(
             children: [
               Icon(Icons.block, color: Colors.orange.shade800),
@@ -347,7 +345,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text(
-                "취소 (다시 입력)",
+                "다시 입력",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
             ),
@@ -446,28 +444,28 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isSelected) ...[
-                        Icon(Icons.check_rounded, size: 13, color: pickInk()),
-                        const SizedBox(width: 2),
-                      ],
-                      Icon(
-                        dir['icon'],
-                        size: 16,
-                        color: isSelected ? pickInk() : slate600,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        dir['label'].split(' ')[0],
-                        style: TextStyle(
-                          color: isSelected ? pickInk() : slate900,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected) ...[
+                          Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                          const SizedBox(width: 2),
+                        ],
+                        Icon(
+                          dir['icon'],
+                          size: 16,
+                          color: isSelected ? pickInk() : slate600,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 4),
+                        Text(
+                          dir['label'].split(' ')[0],
+                          style: TextStyle(
+                            color: isSelected ? pickInk() : slate900,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

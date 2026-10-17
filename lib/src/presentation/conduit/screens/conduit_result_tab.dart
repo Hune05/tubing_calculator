@@ -242,6 +242,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                           fileBase: "전선관_마킹지",
                           data: computeConduitFieldData(),
                           specs: conduitMarkingSheetSpecs(currentSettings),
+                          progressKey: 'field_progress_conduit_v1',
                           inputs: bendList,
                         ),
                       ),
@@ -399,9 +400,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               AppIcons.info,
               // 10-09: 칸 수는 스프링백을 얹은 각도로 셈한다(사용법의 "한두 칸 더"와 겹치지 않게 적는다).
               // 0칸은 각이 한 칸보다 작을 때도 나온다(예전 안내 "설정에서 값을 넣으십시오"는 틀렸다).
-              "기어/노치 진행 ${notches > 0
-                  ? "$notches 칸 이동${(globalBenderSettings.value['applySpringback'] ?? true) == true ? ' (스프링백 포함)' : ''}"
-                  : "한 칸보다 작은 각입니다(설정의 칸당 각도 확인)"}",
+              "기어/노치 진행 ${notches > 0 ? "$notches 칸 이동${(globalBenderSettings.value['applySpringback'] ?? true) == true ? ' (스프링백 포함)' : ''}" : "한 칸보다 작은 각입니다(설정의 칸당 각도 확인)"}",
               stepNoteTeal,
             ),
     );
@@ -429,7 +428,11 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 "끝 여유 ${couplingAllowance.round()}mm 포함 · 벤딩한 뒤 반대쪽 끝을 맞춰 자르십시오",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: slate600),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: slate600,
+                ),
               ),
             )
           : null,
@@ -437,7 +440,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
         Row(
           children: [
             Expanded(
-              child: CardLabelValue(deductionLabel, "${deductionValue.round()} mm"),
+              child: CardLabelValue(
+                deductionLabel,
+                "${deductionValue.round()} mm",
+              ),
             ),
             const SizedBox(width: 8),
             Column(
@@ -519,7 +525,9 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           (
             isShort ? AppIcons.warning : AppIcons.info,
             note,
-            isShort ? stepNoteAmber : (isStraight ? stepNoteGrey : stepNoteTeal),
+            isShort
+                ? stepNoteAmber
+                : (isStraight ? stepNoteGrey : stepNoteTeal),
           ),
         if (roll > 0.5)
           (
@@ -566,7 +574,6 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       ),
     );
   }
-
 
   Widget _buildEmptyState() {
     return Center(

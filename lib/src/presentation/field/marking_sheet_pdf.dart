@@ -16,6 +16,9 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:tubing_calculator/src/core/utils/pdf_fonts.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
+import 'package:tubing_calculator/src/presentation/field/field_progress_bus.dart';
+import 'package:tubing_calculator/src/presentation/bend_check/bend_check_model.dart'
+    show loadBendTolerance;
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
 
 const PdfColor _ink = PdfColor.fromInt(0xFF1F2933);
@@ -50,6 +53,11 @@ Future<Uint8List> buildMarkingSheetPdf({
   required List<(String, String)> specs,
   required List<Map<String, dynamic>> inputs,
   DateTime? date,
+  // 10-18: 실측(굽힌 뒤 잰 값). 단계 번호(벤드 순서, 마지막은 자르기) → 실측 − 계산 mm / 잰 각도 °.
+  Map<int, double> measured = const {},
+  Map<int, double> angles = const {},
+  double tolerance = 2.0,
+  double angleTolerance = 1.0,
 }) async {
   final fonts = await loadKoreanPdfFonts();
   final doc = pw.Document(theme: fonts.theme, title: title);
@@ -66,6 +74,7 @@ Future<Uint8List> buildMarkingSheetPdf({
         children: [
           // 10-09: 전선관 마킹지에도 "튜브 벤딩 마킹"이 찍혔다. 제목("… 마킹지")을 따른다.
           pw.Text(
+            // 10-09: 전선관 마킹지에도 "튜브 벤딩 마킹"이 찍혔다. 제목("… 마킹지")을 따른다.
             'FIELD HELPER · ${title.replaceAll('마킹지', '마킹')}',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
@@ -90,6 +99,12 @@ Future<Uint8List> buildMarkingSheetPdf({
         if (data.warnings.isNotEmpty) ...[
           pw.SizedBox(height: 10),
           _warnings(data.warnings),
+        ],
+        if (measured.isNotEmpty || angles.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          _sectionTitle('실측 (굽힌 뒤 잰 값)'),
+          pw.SizedBox(height: 4),
+          _measureTable(data, measured, angles, tolerance, angleTolerance),
         ],
         pw.SizedBox(height: 14),
         _sectionTitle('입력 목록'),
@@ -275,8 +290,11 @@ pw.Widget _tapeStrip(FieldMarkingData data) {
         labels.add(
           pw.Positioned(
             // 오른쪽 끝에서 잘리지 않게 글자를 선 왼쪽에 둔다.
+            // 10-17 밤샘 점검: 마지막 벤드가 가까우면 번호 원과 겹쳤다 → 그때는 줄자 아래 눈금 밑에.
             left: x(data.totalCut) - 38,
-            top: 4,
+            top: bends.any((m) => (x(m.position) - x(data.totalCut)).abs() < 44)
+                ? barTop + barH + 19
+                : 4,
             child: pw.SizedBox(
               width: 36,
               child: pw.Text(
@@ -497,6 +515,94 @@ pw.Widget _inputTable(List<Map<String, dynamic>> inputs) {
   );
 }
 
+/// 실측 표: 구간마다 계획·실측·차이·각도, 허용 밖이면 빨강 "불합격".
+pw.Widget _measureTable(
+  FieldMarkingData data,
+  Map<int, double> measured,
+  Map<int, double> angles,
+  double tol,
+  double angleTol,
+) {
+  String signed(double v, String unit) {
+    final r = (v * 10).round() / 10;
+    final t = r == r.roundToDouble()
+        ? r.round().toString()
+        : r.toStringAsFixed(1);
+    return '${r > 0 ? '+' : ''}$t$unit';
+  }
+
+  final bends = data.bends;
+  final rows = <List<(String, bool?)>>[];
+  for (var k = 0; k < bends.length; k++) {
+    final m = bends[k];
+    final d = measured[k];
+    final a = angles[k];
+    if (d == null && a == null) continue;
+    final legOk = d == null ? null : d.abs() <= tol + 1e-9;
+    final angOk = a == null ? null : (a - m.angle).abs() <= angleTol + 1e-9;
+    final ok = (legOk ?? true) && (angOk ?? true);
+    rows.add([
+      ('${m.number}번 구간', null),
+      (m.leg == null ? '-' : _mm(m.leg!), null),
+      (d == null || m.leg == null ? '-' : _mm(m.leg! + d), null),
+      (d == null ? '-' : signed(d, ''), legOk),
+      (a == null ? '-' : '${_fmt(a)}° (${signed(a - m.angle, '°')})', angOk),
+      (ok ? '합격' : '불합격', ok),
+    ]);
+  }
+  final cut = measured[bends.length];
+  if (cut != null && data.totalCut > 0) {
+    final ok = cut.abs() <= tol + 1e-9;
+    rows.add([
+      ('절단 길이', null),
+      (_mm(data.totalCut), null),
+      (_mm(data.totalCut + cut), null),
+      (signed(cut, ''), ok),
+      ('-', null),
+      (ok ? '합격' : '불합격', ok),
+    ]);
+  }
+  const head = ['구간', '계획', '실측', '차이', '각도 실측', '판정'];
+  pw.Widget cell(String t, {bool? ok, bool bold = false}) => pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    child: pw.Text(
+      t,
+      textAlign: pw.TextAlign.center,
+      style: pw.TextStyle(
+        fontSize: 9,
+        fontWeight: bold || ok == false ? pw.FontWeight.bold : null,
+        color: ok == false ? _red : _ink,
+      ),
+    ),
+  );
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Table(
+        border: const pw.TableBorder(
+          horizontalInside: pw.BorderSide(color: _line, width: 0.5),
+          bottom: pw.BorderSide(color: _line, width: 0.5),
+        ),
+        children: [
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFF3F4F6),
+            ),
+            children: [for (final h in head) cell(h, bold: true)],
+          ),
+          for (final r in rows)
+            pw.TableRow(children: [for (final (t, ok) in r) cell(t, ok: ok)]),
+        ],
+      ),
+      pw.SizedBox(height: 3),
+      pw.Text(
+        '허용: 길이 ±${_fmt(tol)} mm, 각도 ±${_fmt(angleTol)}°. 구간 길이는 앞 꺾이는 점(처음은 관 끝)에서 이 꺾이는 점까지.',
+        style: const pw.TextStyle(fontSize: 8, color: _grey),
+      ),
+    ],
+  );
+}
+
 pw.Widget _warnings(List<String> warnings) {
   return pw.Container(
     width: double.infinity,
@@ -535,6 +641,8 @@ Future<void> openMarkingSheet(
   required FieldMarkingData data,
   required List<(String, String)> specs,
   required List<Map<String, dynamic>> inputs,
+  // 실측을 읽을 현장 진행 칸(튜브·전선관).
+  String progressKey = kTubeFieldProgressKey,
 }) async {
   if (data.isEmpty) {
     // 10-09: 계산이 실패해도(자를 길이 이상 등) "입력한 배관이 없습니다"라고 했다. 까닭이 있으면 그것을.
@@ -544,11 +652,22 @@ Future<void> openMarkingSheet(
     );
     return;
   }
+  // 10-18: 현장·아이소 탭에서 넣은 실측(이 도면 것)도 같이 찍는다.
+  final measured = await readFieldMeasured(progressKey, data.signature);
+  final angles = await readAngleMeasured(
+    data.signature,
+    progressKey: progressKey,
+  );
+  final tol = await loadBendTolerance();
   final bytes = await buildMarkingSheetPdf(
     title: title,
     data: data,
     specs: specs,
     inputs: inputs,
+    measured: measured,
+    angles: angles,
+    tolerance: tol,
+    angleTolerance: kAngleTolDefault,
   );
   final d = DateTime.now();
   final fileName =

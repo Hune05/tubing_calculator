@@ -11,9 +11,17 @@ import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_input_tab.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
+// 10-18: 총 절단과 경고를 두 글로 나눴다(좁은 폰에서 경고가 잘렸다) — 안의 글을 이어 읽는다.
 String _plain(WidgetTester t) {
-  final w = t.widget<Text>(find.byKey(const Key('input_cut_summary')));
-  return w.textSpan!.toPlainText();
+  final texts = t.widgetList<Text>(
+    find.descendant(
+      of: find.byKey(const Key('input_cut_summary')),
+      matching: find.byType(Text),
+    ),
+  );
+  return texts
+      .map((w) => w.textSpan?.toPlainText() ?? w.data ?? '')
+      .join();
 }
 
 void main() {

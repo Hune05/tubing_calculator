@@ -262,7 +262,7 @@ class _MobileInputTabState extends State<MobileInputTab>
         builder: (ctx) => AppConfirmDialog(
           title: "벤딩 및 누설 경고",
           icon: const Icon(Icons.warning_rounded),
-          cancelText: "취소 (다시 입력)",
+          cancelText: "다시 입력",
           okText: "무시하고 추가",
           // 위험을 알고도 넣는 것이라 빨간 단추로 한 번 더 눈에 띄게 한다.
           destructive: true,
@@ -852,7 +852,9 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                   (p) => p.caution,
                                                 )
                                               : pureWhite,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: isEditingThis
                                               ? Border.all(
                                                   color: fieldPick(
@@ -1033,7 +1035,9 @@ class _MobileInputTabState extends State<MobileInputTab>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              // 10-17 폰 확인: 이름이 칸 왼쪽에 있어 좁은 폰에서 ✓ 칸 글씨가 작아졌다 → 이름 위 칸.
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     "배관 형태",
@@ -1043,11 +1047,19 @@ class _MobileInputTabState extends State<MobileInputTab>
                                       fontSize: 13,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    width: double.infinity,
                                     child: SegmentedButton<String>(
                                       // 10-15 새 모양: 색은 앱 테마(옅은 청록 + ✓ + 짙은 청록 글자).
                                       showSelectedIcon: true,
+                                      // 10-17 폰 확인: ✓가 붙은 칸 글씨만 작아졌다 → 칸 안쪽 여백을 줄인다.
+                                      style: const ButtonStyle(
+                                        padding: WidgetStatePropertyAll(
+                                          EdgeInsets.symmetric(horizontal: 4),
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
                                       segments: const [
                                         ButtonSegment(
                                           value: "90",
@@ -1285,33 +1297,36 @@ class _MobileInputTabState extends State<MobileInputTab>
                                               child: FittedBox(
                                                 fit: BoxFit.scaleDown,
                                                 child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  if (isSelected) ...[
-                                                    pickCheck(fc, 13),
-                                                    const SizedBox(width: 2),
-                                                  ],
-                                                  Icon(
-                                                    dir['icon'],
-                                                    size: 16,
-                                                    color: isSelected
-                                                        ? pickInk(fc)
-                                                        : slate600,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    dir['label'].split(' ')[0],
-                                                    style: TextStyle(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (isSelected) ...[
+                                                      pickCheck(fc, 13),
+                                                      const SizedBox(width: 2),
+                                                    ],
+                                                    Icon(
+                                                      dir['icon'],
+                                                      size: 16,
                                                       color: isSelected
                                                           ? pickInk(fc)
-                                                          : slate900,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 12,
+                                                          : slate600,
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      dir['label'].split(
+                                                        ' ',
+                                                      )[0],
+                                                      style: TextStyle(
+                                                        color: isSelected
+                                                            ? pickInk(fc)
+                                                            : slate900,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1391,7 +1406,9 @@ class _MobileInputTabState extends State<MobileInputTab>
                                             width: 1.5,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -1419,7 +1436,9 @@ class _MobileInputTabState extends State<MobileInputTab>
                                             : makitaTeal,
                                         foregroundColor: pureWhite,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,

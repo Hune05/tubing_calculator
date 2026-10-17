@@ -283,7 +283,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
 
     if (mounted) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             _isElectric ? "전동 장비 설정을 저장했습니다." : "수동 장비 설정을 저장했습니다.",
@@ -525,7 +526,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     }
     if (mounted) {
       setState(() {});
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         const SnackBar(
           content: Text("게인만 저장했습니다. 다른 바꾼 값은 아직 저장하지 않았습니다."),
           behavior: SnackBarBehavior.floating,
@@ -1394,8 +1396,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildDropdownWithAdvancedHelper(
           label: "외경 (OD) [$_unit]",
           helpTitle: "외경 (OD: Outside Diameter)",
-          helpContent:
-              "벤더 다이와 피팅 규격을 고르는 기준 치수입니다.",
+          helpContent: "벤더 다이와 피팅 규격을 고르는 기준 치수입니다.",
           value: _currentOD,
           items: _odList,
           onChanged: (val) {
@@ -1409,7 +1410,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildNumpadInputWithHelp(
           "두께 (WT) [$_unit]",
           "두께 (WT: Wall Thickness)",
-          "두께에 따라 게인이 달라집니다.",
+          "적어 두는 칸입니다. 마킹 계산에는 쓰지 않습니다.\n두께가 바뀌면 스프링백·게인이 달라지니, 그때는 \"시험 벤딩으로 게인 잡기\"로 게인을 다시 잡으십시오.",
           _wtController,
           helperText: "※ 배관 벽의 두께",
         ),
@@ -1431,8 +1432,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildDropdownWithAdvancedHelper(
           label: "피팅 타입",
           helpTitle: "피팅 타입",
-          helpContent:
-              "Twin Ferrule(스웨즈락 등)은 튜브가 피팅 안으로 들어가는 깊이를 길이에 더합니다.",
+          helpContent: "Twin Ferrule(스웨즈락 등)은 튜브가 피팅 안으로 들어가는 깊이를 길이에 더합니다.",
           value: _fittingType,
           items: const ["Twin Ferrule", "Bite Type", "Flare"],
           onChanged: (val) {
@@ -1490,8 +1490,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildDropdownWithAdvancedHelper(
           label: "장비 타입",
           helpTitle: "장비 타입 (수동/전동)",
-          helpContent:
-              "수동(Hand)·전동(Electric) 중 고릅니다.\n타입에 따라 게인과 입력 칸이 달라집니다.",
+          helpContent: "수동(Hand)·전동(Electric) 중 고릅니다.\n타입에 따라 게인과 입력 칸이 달라집니다.",
           value: _benderType,
           items: const ["수동 (Hand)", "전동 (Electric)"],
           onChanged: (val) {
@@ -1732,10 +1731,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               "1. 툴링 세팅",
               "관 규격에 맞는 벤드 슈(Bend Shoe)와 롤러 서포트(Roller Support)를 장착합니다.",
             ),
-            _guideText(
-              "2. 각도 설정",
-              "숫자 바퀴로 목표 각도에 스프링백만큼 더한 값을 맞춥니다.",
-            ),
+            _guideText("2. 각도 설정", "숫자 바퀴로 목표 각도에 스프링백만큼 더한 값을 맞춥니다."),
             _guideText(
               "3. 고정·벤딩",
               "버튼 이름과 조작 순서는 Swagelok 설명서(MS-13-145)를 따르십시오. 이 앱은 조작 버튼 순서를 확인하지 못했습니다.",
@@ -1922,10 +1918,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               ),
             ),
             const SizedBox(height: 8),
-            _guideText(
-              "1. 방식",
-              "반자동입니다. 각도만 기계가 꺾고, 이송과 회전은 손으로 합니다.",
-            ),
+            _guideText("1. 방식", "반자동입니다. 각도만 기계가 꺾고, 이송과 회전은 손으로 합니다."),
             _guideText(
               "2. 각도 입력",
               "각도 8개까지 미리 넣어 둘 수 있습니다. 앱에서 계산한 각도에 스프링백만큼 더해 넣으십시오.",

@@ -354,6 +354,14 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   const Text('지난 기록', style: AppText.subtitle),
                   const SizedBox(height: 6),
                   RecordSyncLine(_sync, key: const Key('bendcheck_sync')),
+                  // 10-17: 각도 실측은 도면마다 따로 남는다(mm 통계와 섞지 않음).
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+                    child: Text(
+                      '각도 실측은 이 목록에 들어가지 않고, 도면마다 아이소·현장 탭에 남습니다.',
+                      style: AppText.sub,
+                    ),
+                  ),
                   if (shown.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 4),
@@ -430,9 +438,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
           key: Key('bendcheck_kind_$k'),
           label: Text(bendKindLabel(k)),
           selected: k == selected,
-          labelStyle: TextStyle(
-            fontWeight: FontWeight.w700,
-          ),
+          labelStyle: TextStyle(fontWeight: FontWeight.w700),
           onSelected: (_) => setState(() => _kind = k),
         ),
     ],
@@ -873,9 +879,7 @@ class _AddSheetState extends State<_AddSheet> {
       key: Key(key),
       label: Text(label),
       selected: selected,
-      labelStyle: TextStyle(
-        fontWeight: FontWeight.w700,
-      ),
+      labelStyle: TextStyle(fontWeight: FontWeight.w700),
       onSelected: (_) => setState(() => _isCut = cut),
     );
   }

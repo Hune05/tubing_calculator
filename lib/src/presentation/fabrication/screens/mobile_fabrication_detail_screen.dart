@@ -53,7 +53,9 @@ class _MobileFabricationDetailScreenState
     extends State<MobileFabricationDetailScreen> {
   /// 보관함 줄을 고쳐 쓸 수 있게 복사해 둔다. 폰의 DB(sqflite)가 돌려주는 줄은 읽기 전용이라
   /// 바로 고치면 예외가 나서 "도면 정보 수정"·"시작 방향 바꾸기"가 실기기에서 실패했다(10-07).
-  late final Map<String, dynamic> _item = Map<String, dynamic>.from(widget.itemData);
+  late final Map<String, dynamic> _item = Map<String, dynamic>.from(
+    widget.itemData,
+  );
 
   Map<String, dynamic> _pToP = {};
   List<Map<String, dynamic>> _bendList = [];
@@ -112,8 +114,7 @@ class _MobileFabricationDetailScreenState
       }
 
       double dbTotal =
-          double.tryParse(_item['total_length']?.toString() ?? '0') ??
-          0.0;
+          double.tryParse(_item['total_length']?.toString() ?? '0') ?? 0.0;
 
       double pToPTotal =
           double.tryParse(
@@ -137,10 +138,22 @@ class _MobileFabricationDetailScreenState
 
       _pipeSize = _item['pipe_size']?.toString() ?? 'Unknown';
       _projectName = _pToP['project']?.toString() ?? '미지정 프로젝트';
-      _fromTo = "${_pToP['from'] ?? '모름'} ➔ ${_pToP['to'] ?? '모름'}";
+      // 10-17 밤샘 점검: 시작·도착을 비워 저장하면 "모름 → 모름"이 떴다 → 둘 다 없으면 줄을 감춘다.
+      String place(Object? v) {
+        final t = '${v ?? ''}'.trim();
+        return t.isEmpty || t == '모름' || t == 'null' ? '' : t;
+      }
+
+      final from = place(_pToP['from']), to = place(_pToP['to']);
+      _fromTo = from.isEmpty && to.isEmpty
+          ? ''
+          : "${from.isEmpty ? '모름' : from} ➔ ${to.isEmpty ? '모름' : to}";
       _tailLength = double.tryParse(_pToP['tail']?.toString() ?? '0') ?? 0.0;
       _startDir = _pToP['start_dir']?.toString() ?? 'RIGHT';
-      _memoText = mergeDrawingMemo('${_pToP['note'] ?? ''}', '${_pToP['memo'] ?? ''}');
+      _memoText = mergeDrawingMemo(
+        '${_pToP['note'] ?? ''}',
+        '${_pToP['memo'] ?? ''}',
+      );
 
       _startFit =
           (_pToP['start_fit'] == true) || (_pToP['start_fit'] == 'true');
@@ -231,7 +244,7 @@ class _MobileFabricationDetailScreenState
         onCancel: () => Navigator.pop(ctx, false),
         onOk: () => Navigator.pop(ctx, true),
         content: AppDialog.message(
-          "'$_fromTo'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n"
+          "'${_fromTo.isEmpty ? _projectName : _fromTo}'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n"
           "시작·끝 피팅과 꼬리 길이도 저장할 때 값으로 맞춥니다.\n"
           "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)\n"
           "고쳐서 저장할 때 이 도면에 덮어쓸 수도 있습니다."
@@ -252,7 +265,8 @@ class _MobileFabricationDetailScreenState
           // 10-09: U벤드 표시도 살린다(빠지면 마킹 카드의 "U자 시작" 안내가 사라졌다).
           if (b['uBend'] is num) 'uBend': (b['uBend'] as num).toDouble(),
           // 8차: 롤링 오프셋 굴림 각도도(빠지면 "N° 굴려 잡으십시오" 안내가 사라졌다).
-          if (b['rollHint'] is num) 'rollHint': (b['rollHint'] as num).toDouble(),
+          if (b['rollHint'] is num)
+            'rollHint': (b['rollHint'] as num).toDouble(),
         },
     ]);
     // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면에서 왔는지 기억한다.
@@ -314,7 +328,8 @@ class _MobileFabricationDetailScreenState
 
   Future<void> _exportToPDFAndShare() async {
     if (_bendList.isEmpty) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         const SnackBar(
           content: Text("공유할 내용이 없습니다."),
           backgroundColor: slate600,
@@ -364,7 +379,8 @@ class _MobileFabricationDetailScreenState
         now: FabQr.savedDateOf(_item['date']),
       );
       if (qrLink.dense && mounted) {
-        showSnackOnce(ScaffoldMessenger.of(context),
+        showSnackOnce(
+          ScaffoldMessenger.of(context),
           const SnackBar(
             content: Text("벤딩이 많아 QR이 촘촘합니다. 인쇄한 뒤 앱으로 읽히는지 확인하십시오."),
           ),
@@ -567,14 +583,13 @@ class _MobileFabricationDetailScreenState
                   String angle = isStraight
                       ? "-"
                       : fabAngleCell(
-                          double.tryParse(bend['angle']?.toString() ?? '0') ?? 0,
+                          double.tryParse(bend['angle']?.toString() ?? '0') ??
+                              0,
                           (bend['target_angle'] as num?)?.toDouble(),
                         );
                   String direction = isStraight
                       ? "-"
-                      : fabDirectionLabel(
-                          (bend['rotation'] ?? 0.0).toDouble(),
-                        );
+                      : fabDirectionLabel((bend['rotation'] ?? 0.0).toDouble());
                   String marking = isStraight
                       ? "-"
                       : _extractValue(bend, [
@@ -640,7 +655,8 @@ class _MobileFabricationDetailScreenState
     } catch (e) {
       debugPrint("PDF 생성 실패: $e");
       if (mounted) {
-        showSnackOnce(ScaffoldMessenger.of(context),
+        showSnackOnce(
+          ScaffoldMessenger.of(context),
           const SnackBar(
             content: Text("PDF를 만들지 못했습니다."),
             backgroundColor: Colors.red,
@@ -846,17 +862,17 @@ class _MobileFabricationDetailScreenState
                                   // 새 맵을 처음부터 만들면 저장 때 장비 값(specs)과 다른 칸이 지워진다.
                                   // 특이사항은 저장 창의 "무엇을 했는지"(note)와 같은 글이라 둘 다 같게 적는다.
                                   final memo = memoCtrl.text.trim();
-                                  final Map<String, dynamic> newPtoP =
-                                      historyPToPWith(_pToP, {
-                                        // 비우면 그 뒤 PDF의 QR이 안 열려서 "프로젝트 미지정"으로(10-07).
-                                        "project": projCtrl.text.trim().isEmpty
-                                            ? '프로젝트 미지정'
-                                            : projCtrl.text.trim(),
-                                        "from": fromCtrl.text,
-                                        "to": toCtrl.text,
-                                        "memo": memo,
-                                        "note": memo,
-                                      });
+                                  final Map<String, dynamic>
+                                  newPtoP = historyPToPWith(_pToP, {
+                                    // 비우면 그 뒤 PDF의 QR이 안 열려서 "프로젝트 미지정"으로(10-07).
+                                    "project": projCtrl.text.trim().isEmpty
+                                        ? '프로젝트 미지정'
+                                        : projCtrl.text.trim(),
+                                    "from": fromCtrl.text,
+                                    "to": toCtrl.text,
+                                    "memo": memo,
+                                    "note": memo,
+                                  });
 
                                   await TubeHistoryDb.update(
                                     _item['id'] as int,
@@ -868,9 +884,7 @@ class _MobileFabricationDetailScreenState
 
                                   // 부모 위젯 데이터 갱신
                                   setState(() {
-                                    _item['p_to_p'] = jsonEncode(
-                                      newPtoP,
-                                    );
+                                    _item['p_to_p'] = jsonEncode(newPtoP);
                                     _item['pipe_size'] = selectedSize;
                                     _parseData();
                                   });
@@ -880,7 +894,8 @@ class _MobileFabricationDetailScreenState
                                   Navigator.pop(context);
 
                                   // 3. 미리 빼둔 messenger로 알림 띄우기 (에러 안 남!)
-                                  showSnackOnce(messenger,
+                                  showSnackOnce(
+                                    messenger,
                                     SnackBar(
                                       content: const Text(
                                         "도면 정보를 수정했습니다.",
@@ -899,7 +914,8 @@ class _MobileFabricationDetailScreenState
                                 } catch (e) {
                                   debugPrint("저장 에러: $e");
                                   setModalState(() => isSaving = false);
-                                  showSnackOnce(messenger,
+                                  showSnackOnce(
+                                    messenger,
                                     const SnackBar(
                                       content: Text("저장하지 못했습니다."),
                                       backgroundColor: Colors.red,
@@ -978,14 +994,15 @@ class _MobileFabricationDetailScreenState
                   color: slate900,
                 ),
               ),
-              Text(
-                _fromTo,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: slate600,
-                  fontWeight: FontWeight.w600,
+              if (_fromTo.isNotEmpty)
+                Text(
+                  _fromTo,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: slate600,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
             ],
           ),
           actions: [
@@ -1128,7 +1145,8 @@ class _MobileFabricationDetailScreenState
                 debugPrint("방향 저장 실패: $e");
               }
             },
-            totalCutLength: _totalLength,
+            // 10-17 밤샘 점검: 위 카드에 이미 있어 아이소 위 "총 절단 길이" 칸은 뺀다.
+            totalCutLength: 0,
           ),
         ),
       ),
@@ -1147,8 +1165,7 @@ class _MobileFabricationDetailScreenState
       final item = displayMarks[index];
       final bool isStraight = item['is_straight'] == true;
       final int mark = (item['marking_point'] as num?)?.round() ?? 0;
-      final int incremental =
-          (item['incremental_mark'] as num?)?.round() ?? 0;
+      final int incremental = (item['incremental_mark'] as num?)?.round() ?? 0;
       final int length = (item['length'] as num?)?.round() ?? 0;
       final int markNum =
           (item['mark_num'] as num?)?.toInt() ??
@@ -1157,8 +1174,7 @@ class _MobileFabricationDetailScreenState
       final double rotation = (item['rotation'] as num?)?.toDouble() ?? 0.0;
       final double angle =
           double.tryParse(item['angle']?.toString() ?? '0') ?? 0.0;
-      final double target =
-          (item['target_angle'] as num?)?.toDouble() ?? angle;
+      final double target = (item['target_angle'] as num?)?.toDouble() ?? angle;
       final bool hasSpringback = (target - angle).abs() > 0.05;
 
       final int realIndex = _bendList.indexOf(item);

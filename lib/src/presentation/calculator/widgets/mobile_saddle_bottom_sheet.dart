@@ -4,7 +4,8 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
-import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
+    show showSheetSnack;
 
 import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -264,7 +265,8 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       (roundedTravel, sideAngle, _selectedRotation!),
     ]);
 
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           _conduitCenter
@@ -301,9 +303,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: const Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
@@ -341,7 +341,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     }
     if (a3 > _maxAngle) {
       _snackMissing(
-        "넣을 수 없습니다. 전선관 벤더는 ${_maxAngle.toInt()}°까지 꺾습니다. 센터 각도를 줄이십시오.",
+        "넣을 수 없습니다. 벤더는 ${_maxAngle.toInt()}°까지 꺾습니다. 센터 각도를 줄이십시오.",
       );
       return;
     }
@@ -371,9 +371,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: Row(
             children: [
               Icon(Icons.block, color: Colors.orange.shade800),
@@ -394,7 +392,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text(
-                "취소 (다시 입력)",
+                "다시 입력",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
             ),
@@ -447,7 +445,8 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       (roundedTravel, a4, _selectedRotation!),
     ]);
 
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(_addedMessage(startDistance4, roundedShrink)),
         backgroundColor: makitaTeal,
@@ -463,9 +462,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: const Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
@@ -520,9 +517,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: Row(
             children: [
               Icon(Icons.block, color: Colors.orange.shade800),
@@ -544,7 +539,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text(
-                "취소 (다시 입력)",
+                "다시 입력",
                 style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
               ),
             ),
@@ -634,28 +629,28 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isSelected) ...[
-                        Icon(Icons.check_rounded, size: 13, color: pickInk()),
-                        const SizedBox(width: 2),
-                      ],
-                      Icon(
-                        dir['icon'],
-                        size: 16,
-                        color: isSelected ? pickInk() : slate600,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        dir['label'].split(' ')[0],
-                        style: TextStyle(
-                          color: isSelected ? pickInk() : slate900,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected) ...[
+                          Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                          const SizedBox(width: 2),
+                        ],
+                        Icon(
+                          dir['icon'],
+                          size: 16,
+                          color: isSelected ? pickInk() : slate600,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 4),
+                        Text(
+                          dir['label'].split(' ')[0],
+                          style: TextStyle(
+                            color: isSelected ? pickInk() : slate900,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1325,55 +1320,55 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
           // 10-09: 튜브 반지름 안내라 전선관(가운데 맞춤 새들)에서는 뺀다.
           if (_specs?.isConduit != true) ...[
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.amber.shade400, width: 1.5),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(LucideIcons.ruler, size: 20, color: Colors.orange),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "현장 검수용 실측 참고 (바깥선/등 기준)",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "줄자 측정값 ≈ 도면상 합계(${pipeUsed > 0 ? pipeUsed.toStringAsFixed(1) : '0'}) + 튜브 반지름",
-                        style: const TextStyle(color: slate600, fontSize: 11),
-                      ),
-                      if (pipeUsed > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            "※ 반지름 예: 1/4\" 3.2 mm, 3/8\" 4.8 mm, 1/2\" 6.4 mm",
-                            style: const TextStyle(
-                              color: Colors.deepOrange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.amber.shade400, width: 1.5),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(LucideIcons.ruler, size: 20, color: Colors.orange),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "현장 검수용 실측 참고 (바깥선/등 기준)",
+                          style: TextStyle(
+                            color: slate900,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          "줄자 측정값 ≈ 도면상 합계(${pipeUsed > 0 ? pipeUsed.toStringAsFixed(1) : '0'}) + 튜브 반지름",
+                          style: const TextStyle(color: slate600, fontSize: 11),
+                        ),
+                        if (pipeUsed > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              "※ 반지름 예: 1/4\" 3.2 mm, 3/8\" 4.8 mm, 1/2\" 6.4 mm",
+                              style: const TextStyle(
+                                color: Colors.deepOrange,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           ],
 
           const SizedBox(height: 16),

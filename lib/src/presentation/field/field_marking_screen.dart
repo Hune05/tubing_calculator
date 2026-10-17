@@ -9,6 +9,8 @@
 ///   왼쪽·볼륨 내림은 이전. 끝낸 단계는 ✓.
 library;
 
+import 'package:flutter/foundation.dart';
+
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -25,6 +27,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/bend_check/bend_check_model.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
+import 'package:tubing_calculator/src/presentation/field/field_progress_bus.dart';
+import 'package:tubing_calculator/src/presentation/field/angle_measure_dialog.dart';
 import 'package:tubing_calculator/src/presentation/field/field_path_thumb.dart';
 import 'package:tubing_calculator/src/presentation/unit_converter/unit_defs.dart'
     show parseInches;
@@ -231,6 +235,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   /// 그 단계 실측 기록의 번호. 다시 기록하면 같은 번호로 바꿔 적는다(10-13: 예전엔 한 건 더 쌓였다).
   final Map<int, String> _measuredIds = {};
 
+  /// 각도 실측(단계 번호 → 잰 각도 °, 10-17). 도면별로 따로 적힌다(field_angle_v1).
+  final Map<int, double> _angles = {};
+
   bool _stepMode = false;
   int _current = 0;
   final Set<int> _done = {};
@@ -241,6 +248,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   @override
   void initState() {
     super.initState();
+    fieldProgressRev.addListener(_onProgressBus);
     if (widget.isActive) _applyOrientation();
     _loadViewPrefs();
   }
@@ -279,6 +287,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   @override
   void dispose() {
+    fieldProgressRev.removeListener(_onProgressBus);
     _syncVolumeCapture(forceOff: true);
     _restorePortrait();
     _tapeScroll.dispose();
@@ -347,6 +356,38 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     _selectedStep = _current;
   }
 
+  /// 아이소에서 실측을 넣으면(10-17) 저장된 진행에서 실측만 다시 읽는다.
+  /// 이 화면이 저장할 때도 불리지만 값이 같으면 아무것도 안 한다.
+  Future<void> _onProgressBus() async {
+    if (_signature.isEmpty) return;
+    final sig = _signature;
+    final m = await readFieldMeasured(widget.progressKey, sig);
+    final ids = await readFieldMeasuredIds(widget.progressKey, sig);
+    final ang = await readAngleMeasured(sig, progressKey: widget.progressKey);
+    if (!mounted || sig != _signature) return;
+    if (!mapEquals(ang, _angles)) {
+      setState(() {
+        _angles
+          ..clear()
+          ..addAll(ang);
+      });
+    }
+    if (mapEquals(m, _measured) && mapEquals(ids, _measuredIds)) return;
+    setState(() {
+      _measured
+        ..clear()
+        ..addAll(m);
+      _measuredIds
+        ..clear()
+        ..addAll(ids);
+    });
+    final p = _savedProgress;
+    if (p != null && p['sig'] == sig) {
+      p['measured'] = {for (final e in m.entries) '${e.key}': e.value};
+      p['measuredIds'] = {for (final e in ids.entries) '${e.key}': e.value};
+    }
+  }
+
   /// 지금 진행을 폰에 적는다(도면 구분 글 `_signature`와 함께).
   Future<void> _persistProgress() async {
     final p = <String, dynamic>{
@@ -362,7 +403,16 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(widget.progressKey, jsonEncode(p));
+      // 도면별 실측 보관(다른 도면을 열었다 돌아와도 되살린다, 10-17).
+      await archiveFieldMeasured(
+        _signature,
+        _measured,
+        _measuredIds,
+        progressKey: widget.progressKey,
+      );
     } catch (_) {}
+    // 아이소 캐드식 치수가 실측을 다시 읽게 알린다(10-17).
+    fieldProgressRev.value++;
   }
 
   /// "처음부터": 진행·실측 표시를 비우고 1번 단계로(실측 기록 자체는 지우지 않는다).
@@ -371,7 +421,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('처음부터 다시 하시겠습니까?'),
-        content: const Text('끝낸 단계 표시와 실측 표시가 지워집니다.\n실측 기록은 그대로 남습니다.'),
+        content: const Text(
+          '끝낸 단계 표시와 실측·각도 표시가 지워집니다.\n벤딩 실측 기록(목록)은 그대로 남습니다.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -393,6 +445,17 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       _measuredIds.clear();
       _selectedStep = null;
     });
+    // 각도 실측도 이 도면 것은 지운다(10-17: 같은 도면으로 새 관을 굽힐 때 앞 관 각도가 남았다).
+    final angleSteps = _angles.keys.toList();
+    setState(_angles.clear);
+    for (final k in angleSteps) {
+      await writeAngleMeasured(
+        _signature,
+        k,
+        null,
+        progressKey: widget.progressKey,
+      );
+    }
     await _persistProgress();
   }
 
@@ -594,7 +657,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               '${m.number}번 꺾이는 점까지${ref == null ? '' : ' $ref 기준으로'} 재서 넣으십시오.';
     final res = await showDialog<({double calc, double actual})>(
       context: context,
-      builder: (ctx) => _MeasureDialog(
+      builder: (ctx) => FieldMeasureDialog(
         what: what,
         how: how,
         calc: calcRaw,
@@ -693,6 +756,67 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     ),
   );
 
+  /// 각도 실측(10-17): 각도기로 잰 실제 각도. 아이소와 같은 기록(도면별)에 적는다.
+  Future<void> _recordAngle(FieldStep s, int index) async {
+    final m = s.mark;
+    if (m == null || !m.isBend) return;
+    final res = await showDialog<({bool clear, double? value})>(
+      context: context,
+      builder: (_) => AngleMeasureDialog(
+        number: m.number,
+        design: m.angle,
+        current: _angles[index],
+      ),
+    );
+    if (res == null || !mounted) return;
+    await writeAngleMeasured(
+      _signature,
+      index,
+      res.clear ? null : res.value,
+      progressKey: widget.progressKey,
+    );
+    if (!mounted) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      if (res.clear) {
+        _angles.remove(index);
+      } else {
+        _angles[index] = res.value!;
+      }
+    });
+  }
+
+  String _angleDiffText(double meas, double design) {
+    final d = ((meas - design) * 10).round() / 10;
+    final a = d.abs();
+    final t = a == a.roundToDouble()
+        ? a.round().toString()
+        : a.toStringAsFixed(1);
+    return '${d > 0 ? '+' : (d < 0 ? '−' : '')}$t°';
+  }
+
+  Widget _angleButton(FieldStep s) {
+    final m = s.mark!;
+    final meas = _angles[_current];
+    return TextButton.icon(
+      key: const Key('field_angle'),
+      onPressed: () => _recordAngle(s, _current),
+      icon: Icon(
+        meas != null ? Icons.check_circle_rounded : Icons.architecture,
+        size: 18,
+        color: meas != null ? _teal : _muted,
+      ),
+      label: Text(
+        meas != null ? '각도 ${_angleDiffText(meas, m.angle)}' : '각도',
+        style: TextStyle(
+          fontSize: _small(13),
+          fontWeight: FontWeight.w700,
+          color: _muted,
+        ),
+      ),
+    );
+  }
+
   Widget _zoomButton(Key key, IconData icon, String tip, VoidCallback onTap) =>
       Padding(
         padding: const EdgeInsets.only(left: 6),
@@ -741,6 +865,13 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _needsFollow = true;
           // 같은 도면을 다시 열었으면 하던 데까지 되살린다.
           if (!data.isEmpty) _applySavedProgress(data.signature);
+          _angles.clear();
+          // 진행 칸에 없는 도면이면 도면별 보관에서 실측을 되살리고, 각도 실측도 읽는다(10-17).
+          if (!data.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _onProgressBus(),
+            );
+          }
         }
         if (_current >= steps.length) _current = 0;
 
@@ -2155,8 +2286,14 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               // 아래 줄(다음 마킹까지·실측 기록)과 안 겹치게 아래 여백을 둔다.
               child: Center(
                 child: Padding(
+                  // 10-17 밤샘 점검: 좁은 폰은 아래 줄이 두 줄이라 굴림 안내와 겹쳤다 → 여백도 두 줄만큼.
                   padding: portrait
-                      ? const EdgeInsets.fromLTRB(8, 8, 8, 40)
+                      ? EdgeInsets.fromLTRB(
+                          8,
+                          8,
+                          8,
+                          MediaQuery.sizeOf(context).width < 420 ? 76 : 40,
+                        )
                       : const EdgeInsets.all(8),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
@@ -2172,48 +2309,109 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           right: 0,
           bottom: 2,
           // 좁은 폭(세로 344)에서도 안 넘치게 폭에 맞춰 줄인다.
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_current + 1 < steps.length)
-                  Text(
-                    '${steps[_current + 1].isCut ? '자르기까지' : '다음 마킹까지'} '
-                    '${markGap(steps[_current + 1].at, s.at).round()} mm',
-                    key: const Key('field_next_gap'),
-                    style: TextStyle(
-                      fontSize: _small(15),
-                      fontWeight: FontWeight.w800,
-                      color: _teal,
-                    ),
-                  ),
-                if (_current + 1 < steps.length && widget.measureGroup != null)
-                  const SizedBox(width: 24),
-                if (widget.measureGroup != null) _measureButton(s),
-                if (_done.isNotEmpty || _current > 0) ...[
-                  const SizedBox(width: 12),
-                  TextButton.icon(
-                    key: const Key('field_progress_reset'),
-                    onPressed: _resetProgress,
-                    icon: Icon(
-                      Icons.restart_alt_rounded,
-                      size: 18,
-                      color: _muted,
-                    ),
-                    label: Text(
-                      '처음부터',
-                      style: TextStyle(
-                        fontSize: _small(13),
-                        fontWeight: FontWeight.w700,
-                        color: _muted,
+          // 10-17 폰 확인: [각도]가 붙어 한 줄 글씨가 너무 작아졌다 → 폭 420 미만은 두 줄
+          // (다음 마킹까지 / 실측·각도·처음부터).
+          child: MediaQuery.sizeOf(context).width < 420
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_current + 1 < steps.length)
+                            Text(
+                              '${steps[_current + 1].isCut ? '자르기까지' : '다음 마킹까지'} '
+                              '${markGap(steps[_current + 1].at, s.at).round()} mm',
+                              key: const Key('field_next_gap'),
+                              style: TextStyle(
+                                fontSize: _small(15),
+                                fontWeight: FontWeight.w800,
+                                color: _teal,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.measureGroup != null) _measureButton(s),
+                          if (widget.measureGroup != null && !s.isCut)
+                            _angleButton(s),
+                          if (_done.isNotEmpty || _current > 0) ...[
+                            const SizedBox(width: 12),
+                            TextButton.icon(
+                              key: const Key('field_progress_reset'),
+                              onPressed: _resetProgress,
+                              icon: Icon(
+                                Icons.restart_alt_rounded,
+                                size: 18,
+                                color: _muted,
+                              ),
+                              label: Text(
+                                '처음부터',
+                                style: TextStyle(
+                                  fontSize: _small(13),
+                                  fontWeight: FontWeight.w700,
+                                  color: _muted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_current + 1 < steps.length)
+                        Text(
+                          '${steps[_current + 1].isCut ? '자르기까지' : '다음 마킹까지'} '
+                          '${markGap(steps[_current + 1].at, s.at).round()} mm',
+                          key: const Key('field_next_gap'),
+                          style: TextStyle(
+                            fontSize: _small(15),
+                            fontWeight: FontWeight.w800,
+                            color: _teal,
+                          ),
+                        ),
+                      if (_current + 1 < steps.length &&
+                          widget.measureGroup != null)
+                        const SizedBox(width: 24),
+                      if (widget.measureGroup != null) _measureButton(s),
+                      if (widget.measureGroup != null && !s.isCut)
+                        _angleButton(s),
+                      if (_done.isNotEmpty || _current > 0) ...[
+                        const SizedBox(width: 12),
+                        TextButton.icon(
+                          key: const Key('field_progress_reset'),
+                          onPressed: _resetProgress,
+                          icon: Icon(
+                            Icons.restart_alt_rounded,
+                            size: 18,
+                            color: _muted,
+                          ),
+                          label: Text(
+                            '처음부터',
+                            style: TextStyle(
+                              fontSize: _small(13),
+                              fontWeight: FontWeight.w700,
+                              color: _muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
-          ),
+                ),
         ),
       ],
     );
@@ -2490,7 +2688,7 @@ class _PointerPainter extends CustomPainter {
 
 /// 실측 값 입력 창. 입력 컨트롤러를 이 창이 스스로 만들고 없앤다(닫히는 동안에도 안전하게).
 /// 돌려주는 값: 견줄 계산값(보인 대로 반올림한 값)과 실측값, 둘 다 mm.
-class _MeasureDialog extends StatefulWidget {
+class FieldMeasureDialog extends StatefulWidget {
   final String what;
 
   /// 어디서 어디까지 재는지 한 줄.
@@ -2511,7 +2709,8 @@ class _MeasureDialog extends StatefulWidget {
   /// 설정이 인치면 인치로도 받는다(10-13).
   final FieldInchMode inchMode;
   final int inchDenominator;
-  const _MeasureDialog({
+  const FieldMeasureDialog({
+    super.key,
     required this.what,
     required this.how,
     required this.calc,
@@ -2523,10 +2722,10 @@ class _MeasureDialog extends StatefulWidget {
   });
 
   @override
-  State<_MeasureDialog> createState() => _MeasureDialogState();
+  State<FieldMeasureDialog> createState() => _MeasureDialogState();
 }
 
-class _MeasureDialogState extends State<_MeasureDialog> {
+class _MeasureDialogState extends State<FieldMeasureDialog> {
   String? _measureErr;
   final TextEditingController _ctrl = TextEditingController();
 
@@ -2610,9 +2809,7 @@ class _MeasureDialogState extends State<_MeasureDialog> {
       key: Key(key),
       label: Text(label),
       selected: selected,
-      labelStyle: TextStyle(
-        fontWeight: FontWeight.w700,
-      ),
+      labelStyle: TextStyle(fontWeight: FontWeight.w700),
       onSelected: (_) => setState(() {
         _inch = inch;
         _measureErr = null;

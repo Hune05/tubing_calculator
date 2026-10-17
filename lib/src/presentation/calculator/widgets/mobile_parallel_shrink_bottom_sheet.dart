@@ -217,28 +217,29 @@ class _MobileParallelShrinkBottomSheetState
               const SizedBox(height: 12),
               _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const Text(
-                      "빠른 각도:",
-                      style: TextStyle(
-                        color: slate600,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+              // 10-17: 좁은 폰에서 90° 칩이 화면 밖에 숨었다(옆으로 밀어야 보임) → 줄바꿈.
+              Wrap(
+                spacing: 0,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text(
+                    "빠른 각도:",
+                    style: TextStyle(
+                      color: slate600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(width: 8),
-                    ...[
-                      22.5,
-                      30.0,
-                      45.0,
-                      60.0,
-                      90.0,
-                    ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  ...[
+                    22.5,
+                    30.0,
+                    45.0,
+                    60.0,
+                    90.0,
+                  ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
+                ],
               ),
               const SizedBox(height: 16),
               if (_isParallelMode) ...[
