@@ -57,6 +57,9 @@ class MobilePipeVisualizer extends StatefulWidget {
   /// 치수 단추(끔·계획·실측)를 보일지. 보관함 상세처럼 보기만 하는 곳은 끈다.
   final bool showDimControl;
 
+  /// [실측] 보기를 보일지(10-18). 보관함 도면 보기처럼 보기만 하는 곳은 끔·계획만.
+  final bool allowMeasureMode;
+
   /// "실측" 보기에서 치수(또는 관)를 누르면 그 구간이 끝나는 벤드 줄 번호로 부른다(마지막 직관은 -1).
   final ValueChanged<int>? onLegTap;
 
@@ -87,6 +90,7 @@ class MobilePipeVisualizer extends StatefulWidget {
     this.cutDiff,
     this.tolerance = 2.0,
     this.showDimControl = false,
+    this.allowMeasureMode = true,
     this.onLegTap,
     this.onBendTap,
     this.measuredAngle = const {},
@@ -121,6 +125,9 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
 
   /// 캐드식 치수(10-17): 0 끔 · 1 계획 · 2 계획+실측. 폰에 기억한다.
   int _dimMode = 0;
+
+  /// 지금 보일 치수 보기(실측을 못 쓰는 곳에서는 실측이 계획으로).
+  int get _mode => widget.allowMeasureMode ? _dimMode : math.min(_dimMode, 1);
   static const String _dimKey = 'iso_dim_mode_v1';
 
   /// 마지막으로 그린 치수 자리(누른 곳 찾기용). 그리기가 채운다.
@@ -145,7 +152,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
       v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
 
   void _onTapUp(TapUpDetails d) {
-    if (_dimMode != 2) return;
+    if (_mode != 2) return;
     final p = d.localPosition;
     final had = _detail;
     if (had != null) setState(() => _detail = null);
@@ -242,7 +249,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
     if (size == null || size.isEmpty) return;
     // 10-17 A11 시험: 관 모양만 보고 고르면 글이 몰리는 방향을 골랐다. 8방향을 화면 밖에서
     // 실제로 그려 보고, 치수·각도 글이 멀리 밀리거나 겹치거나 화면 밖에 걸친 정도로 고른다.
-    final mode = !widget.showDimControl || _dimMode == 0 ? 1 : _dimMode;
+    final mode = !widget.showDimControl || _mode == 0 ? 1 : _mode;
     final topInset = _topInset;
     final bottomInset = _bottomInset;
     final view = Rect.fromLTRB(
@@ -512,7 +519,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
                 bendRadius: widget.bendRadius,
                 outerDiameter: widget.outerDiameter,
                 fittingDepth: widget.fittingDepth,
-                dimMode: widget.showDimControl ? _dimMode : 0,
+                dimMode: widget.showDimControl ? _mode : 0,
                 measuredDiff: widget.measuredDiff,
                 tolerance: widget.tolerance,
                 hits: _dimHits,
@@ -540,7 +547,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
           ),
         ),
 
-        if (_detail != null && _dimMode == 2) _buildDetailBubble(),
+        if (_detail != null && _mode == 2) _buildDetailBubble(),
 
         // 🌟 4. 모바일 전용 컴팩트 컨트롤러 (하단 중앙 플로팅 바)
         if (!widget.isLightMode)
@@ -719,7 +726,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
   // 캐드식 치수 고르기: 끔 · 계획 · 실측(계획 + 현장 탭에서 잰 값).
   Widget _buildDimSelector() {
     Widget seg(int v, String label) {
-      final on = _dimMode == v;
+      final on = _mode == v;
       return GestureDetector(
         key: Key('iso_dim_$v'),
         behavior: HitTestBehavior.opaque,
@@ -765,7 +772,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
           const SizedBox(width: 8),
           seg(0, '끔'),
           seg(1, '계획'),
-          seg(2, '실측'),
+          if (widget.allowMeasureMode) seg(2, '실측'),
         ],
       ),
     );
@@ -779,7 +786,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
   // 왼쪽 위 칸 묶음: 넓으면 한 줄, 좁으면 [시작 방향·치수] 아래 [요약·절단] 한 줄.
   Widget _buildTopBar(double width) {
     final dim = widget.showDimControl && !widget.isLightMode;
-    final m2 = dim && _dimMode == 2;
+    final m2 = dim && _mode == 2;
     final summaryRow = Row(
       children: [
         Flexible(child: _buildMeasureSummary()),

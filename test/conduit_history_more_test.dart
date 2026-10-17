@@ -166,7 +166,10 @@ void main() {
       };
       await seedW(tester, 'A', 'a', settings: {'gain': 70.0, 'conduitSize': '16mm'});
       await openTab(tester);
-      await tester.tap(find.text('계산기로 불러오기'));
+      // 10-18: 전선관 보관함은 도면 보기를 거쳐 불러온다.
+      await tester.tap(find.text('도면 보기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_view_load')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();
@@ -193,7 +196,10 @@ void main() {
         'takeUp': 152.4,
       });
       await openTab(tester);
-      await tester.tap(find.text('계산기로 불러오기'));
+      // 10-18: 전선관 보관함은 도면 보기를 거쳐 불러온다.
+      await tester.tap(find.text('도면 보기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_view_load')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();
@@ -212,7 +218,10 @@ void main() {
     testWidgets('설정이 같으면 알림 창 없이 불러온다', (tester) async {
       await seedW(tester, 'A', 'a', settings: Map.of(globalBenderSettings.value));
       await openTab(tester);
-      await tester.tap(find.text('계산기로 불러오기'));
+      // 10-18: 전선관 보관함은 도면 보기를 거쳐 불러온다.
+      await tester.tap(find.text('도면 보기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_view_load')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();

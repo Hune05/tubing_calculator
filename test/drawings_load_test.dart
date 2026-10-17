@@ -103,7 +103,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('21° 오프셋'), findsOneWidget);
 
-      await tester.tap(find.text('계산기로 불러오기'));
+      // 10-18: 전선관 보관함은 도면 보기를 거쳐 불러온다.
+      await tester.tap(find.text('도면 보기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_view_load')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();

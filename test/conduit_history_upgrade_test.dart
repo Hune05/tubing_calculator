@@ -400,7 +400,10 @@ void main() {
     testWidgets('계산기로 불러오면 그 도면을 기억한다', (tester) async {
       await openTab(tester);
       // 새것(B구역 도면)이 먼저, 첫 도면이 두 번째 카드
-      await tester.tap(find.text('계산기로 불러오기').last);
+      // 10-18: 전선관 보관함은 도면 보기를 거쳐 불러온다.
+      await tester.tap(find.text('도면 보기').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_view_load')));
       await tester.pumpAndSettle();
       expect(find.textContaining('이 도면에 덮어쓸 수도 있습니다'), findsOneWidget);
       await tester.tap(find.text('불러오기'));
@@ -429,7 +432,10 @@ void main() {
       conduitUseCoupling.value = false;
       await tester.pumpWidget(const MaterialApp(home: ConduitHistoryTab()));
       await settle(tester);
-      await tester.tap(find.text('계산기로 불러오기').first);
+      // 10-18: 전선관 보관함은 도면 보기를 거쳐 불러온다.
+      await tester.tap(find.text('도면 보기').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_view_load')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();

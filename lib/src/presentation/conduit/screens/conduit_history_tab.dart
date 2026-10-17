@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'conduit_settings_page.dart'
     show globalBenderSettings, saveGlobalBenderSettings;
 import 'conduit_settings_diff.dart';
+import 'conduit_drawing_view_page.dart';
 import '../widgets/conduit_drawing_edit_dialog.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
@@ -226,6 +227,16 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
         await _reload();
       },
     );
+  }
+
+  /// 도면 보기(10-18). 거기서 [계산기로 불러오기]를 누르면 불러오기 확인으로.
+  Future<void> _openView(String id) async {
+    final d = _byId[id];
+    if (d == null) return;
+    final load = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ConduitDrawingViewPage(drawing: d)),
+    );
+    if (load == true && mounted) _loadHistory(id);
   }
 
   // 🚀 index 대신 고유 id를 사용하여 데이터 불러오기
@@ -621,7 +632,11 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
       radius: 24,
       bottomMargin: 16,
       onDelete: () => _deleteHistory(item['id']),
-      child: _buildTossStyleCardBody(item),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openView(item['id']),
+        child: _buildTossStyleCardBody(item),
+      ),
     );
   }
 
@@ -742,7 +757,9 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => _loadHistory(item['id']), // 🚀 고유 id 전달
+              // 10-18: 튜브 보관함처럼 먼저 도면(아이소·마킹)을 보고 거기서 불러온다.
+              key: ValueKey('conduit_view_${item['id']}'),
+              onPressed: () => _openView(item['id']),
               style: ElevatedButton.styleFrom(
                 backgroundColor: slate100,
                 foregroundColor: slate900,
@@ -753,7 +770,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                 ),
               ),
               child: const Text(
-                "계산기로 불러오기",
+                "도면 보기",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),

@@ -1126,6 +1126,9 @@ class _MobileFabricationDetailScreenState
             endFit: _endFit,
             isLightMode: _isExporting,
             selectedSegmentIndex: _selectedSegmentIndex,
+            // 10-18: 전선관 도면 보기와 같게 캐드식 계획 치수(PDF로 뽑을 때는 뺀다).
+            showDimControl: !_isExporting,
+            allowMeasureMode: false,
             onStartDirChanged: (newDir) async {
               setState(() {
                 _startDir = newDir;
